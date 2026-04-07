@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("token"));
   const [isLoading, setIsLoading] = useState(true);
+  const didLoginRef = useRef(false);
 
   const logout = useCallback(() => {
     localStorage.removeItem("token");
@@ -35,8 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  // Verify token on mount
+  // Verify token on mount (only for tokens restored from localStorage, not after login/register)
   useEffect(() => {
+    if (didLoginRef.current) {
+      didLoginRef.current = false;
+      setIsLoading(false);
+      return;
+    }
     if (!token) {
       setIsLoading(false);
       return;
@@ -65,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await res.json();
     localStorage.setItem("token", data.access_token);
+    didLoginRef.current = true;
     setToken(data.access_token);
     setUser(data.user);
   };
@@ -81,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const data = await res.json();
     localStorage.setItem("token", data.access_token);
+    didLoginRef.current = true;
     setToken(data.access_token);
     setUser(data.user);
   };
