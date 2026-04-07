@@ -3,7 +3,8 @@
 import os
 from urllib.parse import quote_plus
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # SQL Server connection settings from environment variables
@@ -24,6 +25,32 @@ _DEFAULT_URL = (
     f"&TrustServerCertificate={quote_plus(DB_TRUST_CERT)}"
 )
 DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_URL)
+
+
+def ensure_database_exists(database_url: str) -> None:
+    """Create the target SQL Server database when it is missing."""
+    url = make_url(database_url)
+
+    # Only applicable to SQL Server URLs with an explicit database name.
+    if not url.drivername.startswith("mssql") or not url.database:
+        return
+
+    master_url = url.set(database="master")
+    safe_db_name = url.database.replace("]", "]]")
+    safe_db_literal = url.database.replace("'", "''")
+
+    with create_engine(master_url, isolation_level="AUTOCOMMIT").connect() as connection:
+        connection.execute(
+            text(f"IF DB_ID(N'{safe_db_literal}') IS NULL CREATE DATABASE [{safe_db_name}]")
+        )
+
+
+try:
+    ensure_database_exists(DATABASE_URL)
+except Exception:
+    # Keep application startup resilient in environments where SQL Server
+    # is intentionally unavailable (e.g., unit tests/CI).
+    pass
 
 engine = create_engine(DATABASE_URL)
 
