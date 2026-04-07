@@ -137,6 +137,7 @@ export function Codes() {
                   <TableHead>Category</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Period</TableHead>
+                  <TableHead>Modified</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -148,6 +149,15 @@ export function Codes() {
                     <TableCell>{categories.find((cat) => cat.id === c.category_id)?.name || "—"}</TableCell>
                     <TableCell className="max-w-xs truncate text-sm text-slate-500">{c.code_description}</TableCell>
                     <TableCell><Badge variant="outline">{c.period_description}</Badge></TableCell>
+                    <TableCell className="text-xs text-slate-400">
+                      {c.modified_by != null ? (
+                        <span title={c.modified_at ? new Date(c.modified_at).toLocaleString() : undefined}>
+                          User #{c.modified_by}
+                        </span>
+                      ) : c.created_by != null ? (
+                        <span>Created by #{c.created_by}</span>
+                      ) : "\u2014"}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
                         <Pencil className="h-4 w-4" />

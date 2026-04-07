@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, Integer, String
+from sqlalchemy import Column, Date, DateTime, Integer, String
 
 from app.database import Base
 
@@ -18,3 +18,6 @@ class Folder(Base):
     box_id = Column("boxId", Integer, nullable=True)
     destruction_id = Column("destructionId", Integer, nullable=True)
     department_id = Column("departmentId", Integer, nullable=True)
+    created_by = Column("createdBy", Integer, nullable=True)
+    modified_by = Column("modifiedBy", Integer, nullable=True)
+    modified_at = Column("modifiedAt", DateTime, nullable=True)

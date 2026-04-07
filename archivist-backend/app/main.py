@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.models import Archive, Box, Category, Folder, Location, RetentionCode  # noqa: F401
+from app.models import Archive, Box, Category, Folder, Location, RetentionCode, User  # noqa: F401
 from app.routes import (
+    auth_router,
     archives_router,
     boxes_router,
     categories_router,
@@ -24,11 +25,20 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Only create the Archives table if it doesn't exist (new table).
-# All other tables already exist in the SQL Server database.
-Archive.__table__.create(bind=engine, checkfirst=True)
+@app.on_event("startup")
+def on_startup():
+    """Create new tables if they don't exist (Archives and Users are new).
+    All other tables already exist in the SQL Server database."""
+    try:
+        Archive.__table__.create(bind=engine, checkfirst=True)
+        User.__table__.create(bind=engine, checkfirst=True)
+    except Exception:
+        # Connection may not be available at import time (e.g. during CI);
+        # tables will be created on first successful connection.
+        pass
 
 # Register routers
+app.include_router(auth_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
 app.include_router(codes_router, prefix="/api")
 app.include_router(locations_router, prefix="/api")

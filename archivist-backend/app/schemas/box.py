@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -25,5 +25,8 @@ class BoxRead(BaseModel):
     location_id: int | None
     archive_id: int | None
     folder_count: int = 0
+    created_by: int | None = None
+    modified_by: int | None = None
+    modified_at: datetime | None = None
 
     model_config = {"from_attributes": True}

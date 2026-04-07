@@ -8,7 +8,10 @@ import {
   Archive,
   Settings,
   Upload,
+  LogOut,
+  User,
 } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const links = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -22,6 +25,8 @@ const links = [
 ];
 
 export function Sidebar() {
+  const { user, logout } = useAuth();
+
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-slate-50">
       <div className="flex h-14 items-center border-b px-4">
@@ -47,8 +52,25 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="border-t p-4 text-xs text-slate-400">
-        Archivist v2.0
+      <div className="border-t p-3">
+        {user && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <User className="h-4 w-4 shrink-0 text-slate-500" />
+              <span className="truncate text-sm font-medium text-slate-700">
+                {user.full_name || user.username}
+              </span>
+            </div>
+            <button
+              onClick={logout}
+              className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-slate-400">Archivist v2.0</p>
       </div>
     </aside>
   );

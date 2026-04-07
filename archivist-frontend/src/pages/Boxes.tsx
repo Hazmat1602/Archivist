@@ -96,6 +96,7 @@ export function Boxes() {
                   <TableHead>Expiry</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Folders</TableHead>
+                  <TableHead>Modified</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -116,6 +117,15 @@ export function Boxes() {
                         : <span className="text-slate-400">None</span>}
                     </TableCell>
                     <TableCell><Badge variant="secondary">{b.folder_count}</Badge></TableCell>
+                    <TableCell className="text-xs text-slate-400">
+                      {b.modified_by != null ? (
+                        <span title={b.modified_at ? new Date(b.modified_at).toLocaleString() : undefined}>
+                          User #{b.modified_by}
+                        </span>
+                      ) : b.created_by != null ? (
+                        <span>Created by #{b.created_by}</span>
+                      ) : "\u2014"}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(b)}>
                         <Pencil className="h-4 w-4" />
