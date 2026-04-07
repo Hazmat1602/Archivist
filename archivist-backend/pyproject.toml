@@ -8,11 +8,12 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.12"
 fastapi = {extras = ["standard"], version = "^0.135.3"}
-psycopg = {extras = ["binary"], version = "^3.3.3"}
 sqlalchemy = "^2.0.49"
-aiosqlite = "^0.22.1"
+pyodbc = "^5.1.0"
 python-dateutil = "^2.9.0.post0"
 python-multipart = "^0.0.24"
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-jose = {extras = ["cryptography"], version = "^3.5.0"}
 
 
 [build-system]

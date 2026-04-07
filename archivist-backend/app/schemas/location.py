@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -18,5 +20,8 @@ class LocationRead(BaseModel):
     code: str
     description: str
     local_storage: bool
+    created_by: int | None = None
+    modified_by: int | None = None
+    modified_at: datetime | None = None
 
     model_config = {"from_attributes": True}

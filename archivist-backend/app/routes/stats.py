@@ -3,17 +3,19 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models.box import Box
 from app.models.folder import Folder
 from app.models.location import Location
 from app.models.retention_code import RetentionCode
+from app.models.user import User
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
 
 @router.get("/")
-def dashboard_stats(db: Session = Depends(get_db)):
+def dashboard_stats(db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
     total_folders = db.query(Folder).count()
     total_boxes = db.query(Box).count()
     total_codes = db.query(RetentionCode).count()

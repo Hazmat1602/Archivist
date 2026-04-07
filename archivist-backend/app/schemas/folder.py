@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -27,5 +27,8 @@ class FolderRead(BaseModel):
     expiry_date: date | None
     box_id: int | None
     retention_code_id: int | None
+    created_by: int | None = None
+    modified_by: int | None = None
+    modified_at: datetime | None = None
 
     model_config = {"from_attributes": True}

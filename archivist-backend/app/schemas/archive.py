@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -18,5 +20,8 @@ class ArchiveRead(BaseModel):
     code: str
     name: str
     address: str | None
+    created_by: int | None = None
+    modified_by: int | None = None
+    modified_at: datetime | None = None
 
     model_config = {"from_attributes": True}

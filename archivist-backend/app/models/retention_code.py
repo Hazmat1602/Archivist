@@ -1,21 +1,20 @@
-from sqlalchemy import Column, Date, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Date, DateTime, Integer, String
 
 from app.database import Base
 
 
 class RetentionCode(Base):
-    __tablename__ = "retention_codes"
+    __tablename__ = "RetentionCodes"
 
-    id = Column(Integer, primary_key=True, index=True)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    code = Column(String, nullable=False, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    category_id = Column("categoryId", Integer, nullable=False)
+    code = Column(String, nullable=False)
     name = Column(String, nullable=False)
-    code_description = Column(String, nullable=False)
-    period_description = Column(String, nullable=False)
+    code_description = Column("codeDescription", String, nullable=False)
+    period_description = Column("periodDescription", String, nullable=False)
     period = Column(Integer, nullable=True)       # years; -1 = permanent
-    m_period = Column(Integer, nullable=True)      # months
+    m_period = Column("mPeriod", Integer, nullable=True)      # months
     date = Column(Date, nullable=True)             # fixed expiry date
-
-    category = relationship("Category", back_populates="codes")
-    folders = relationship("Folder", back_populates="retention_code")
+    created_by = Column("createdBy", Integer, nullable=True)
+    modified_by = Column("modifiedBy", Integer, nullable=True)
+    modified_at = Column("modifiedAt", DateTime, nullable=True)

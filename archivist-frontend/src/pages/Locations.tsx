@@ -79,6 +79,7 @@ export function Locations() {
                   <TableHead>Code</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Modified</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -91,6 +92,15 @@ export function Locations() {
                       <Badge variant={l.local_storage ? "success" : "warning"}>
                         {l.local_storage ? "On-site" : "Off-site"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-400">
+                      {l.modified_by != null ? (
+                        <span title={l.modified_at ? new Date(l.modified_at).toLocaleString() : undefined}>
+                          User #{l.modified_by}
+                        </span>
+                      ) : l.created_by != null ? (
+                        <span>Created by #{l.created_by}</span>
+                      ) : "\u2014"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(l)}>

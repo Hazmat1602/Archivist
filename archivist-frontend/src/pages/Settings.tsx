@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Database, Server, Info } from "lucide-react";
+import { Database, Server, Info, User } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 export function Settings() {
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  const { user } = useAuth();
 
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
 
@@ -50,7 +52,37 @@ export function Settings() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" /> Account</CardTitle>
+            <CardDescription>Your account information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Username</span>
+              <span className="text-sm font-medium">{user?.username}</span>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Email</span>
+              <span className="text-sm font-medium">{user?.email}</span>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Full Name</span>
+              <span className="text-sm font-medium">{user?.full_name || "—"}</span>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Role</span>
+              <Badge variant={user?.is_admin ? "default" : "secondary"}>
+                {user?.is_admin ? "Admin" : "User"}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
                 <Server className="h-5 w-5" /> API Connection
               </CardTitle>
               <CardDescription>Backend server configuration</CardDescription>
@@ -76,12 +108,12 @@ export function Settings() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">Engine</span>
-              <Badge variant="secondary">SQLite</Badge>
+              <Badge variant="secondary">SQL Server</Badge>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">Mode</span>
-              <Badge variant="outline">WAL</Badge>
+              <span className="text-sm text-slate-500">Driver</span>
+              <Badge variant="outline">pyodbc (ODBC 18)</Badge>
             </div>
           </CardContent>
         </Card>
@@ -99,7 +131,7 @@ export function Settings() {
             <Separator />
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">Architecture</span>
-              <span className="text-sm">FastAPI + React + SQLite</span>
+              <span className="text-sm">FastAPI + React + SQL Server</span>
             </div>
             <Separator />
             <p className="text-sm text-slate-500">

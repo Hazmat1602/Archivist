@@ -79,6 +79,7 @@ export function Archives() {
                   <TableHead>Code</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Address</TableHead>
+                  <TableHead>Modified</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -88,6 +89,15 @@ export function Archives() {
                     <TableCell><Badge variant="secondary" className="font-mono">{a.code}</Badge></TableCell>
                     <TableCell className="font-medium">{a.name}</TableCell>
                     <TableCell className="text-sm text-slate-500">{a.address || "—"}</TableCell>
+                    <TableCell className="text-xs text-slate-400">
+                      {a.modified_by != null ? (
+                        <span title={a.modified_at ? new Date(a.modified_at).toLocaleString() : undefined}>
+                          User #{a.modified_by}
+                        </span>
+                      ) : a.created_by != null ? (
+                        <span>Created by #{a.created_by}</span>
+                      ) : "\u2014"}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(a)}>
                         <Pencil className="h-4 w-4" />

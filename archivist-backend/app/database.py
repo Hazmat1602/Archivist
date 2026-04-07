@@ -1,26 +1,31 @@
-"""Database engine and session configuration using SQLite."""
+"""Database engine and session configuration for SQL Server via pyodbc."""
 
 import os
-from pathlib import Path
+from urllib.parse import quote_plus
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# Use /data/app.db for deployed persistent storage, otherwise local
-_DB_PATH = os.environ.get("DATABASE_PATH", str(Path(__file__).resolve().parent.parent / "archivist.db"))
-DATABASE_URL = f"sqlite:///{_DB_PATH}"
+# SQL Server connection settings from environment variables
+DB_SERVER = os.environ.get("DB_SERVER", "localhost")
+DB_NAME = os.environ.get("DB_NAME", "Archivist")
+DB_USERNAME = os.environ.get("DB_USERNAME", "sa")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
+DB_DRIVER = os.environ.get("DB_DRIVER", "ODBC Driver 18 for SQL Server")
+DB_ENCRYPT = os.environ.get("DB_ENCRYPT", "Optional")
+DB_TRUST_CERT = os.environ.get("DB_TRUST_CERT", "Yes")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Allow a full DATABASE_URL override for flexibility
+_DEFAULT_URL = (
+    f"mssql+pyodbc://{quote_plus(DB_USERNAME)}:{quote_plus(DB_PASSWORD)}"
+    f"@{DB_SERVER}/{DB_NAME}"
+    f"?driver={quote_plus(DB_DRIVER)}"
+    f"&Encrypt={quote_plus(DB_ENCRYPT)}"
+    f"&TrustServerCertificate={quote_plus(DB_TRUST_CERT)}"
+)
+DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_URL)
 
-
-# Enable WAL mode and foreign keys for SQLite
-@event.listens_for(engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, _connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
-
+engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

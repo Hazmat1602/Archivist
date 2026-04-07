@@ -1,10 +1,24 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem("token");
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: { ...getAuthHeaders(), ...options?.headers },
     ...options,
   });
+  if (res.status === 401) {
+    localStorage.removeItem("token");
+    window.location.href = "/login";
+    throw new Error("Session expired — please log in again");
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`API error ${res.status}: ${body}`);
@@ -15,14 +29,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 // --- Types ---
 
-export interface Category {
+export interface AuditFields {
+  created_by: number | null;
+  modified_by: number | null;
+  modified_at: string | null;
+}
+
+export interface Category extends AuditFields {
   id: number;
   name: string;
   is_subcategory: boolean;
   parent_id: number | null;
 }
 
-export interface RetentionCode {
+export interface RetentionCode extends AuditFields {
   id: number;
   category_id: number;
   code: string;
@@ -34,21 +54,21 @@ export interface RetentionCode {
   date: string | null;
 }
 
-export interface Location {
+export interface Location extends AuditFields {
   id: number;
   code: string;
   description: string;
   local_storage: boolean;
 }
 
-export interface Archive {
+export interface Archive extends AuditFields {
   id: number;
   code: string;
   name: string;
   address: string | null;
 }
 
-export interface Box {
+export interface Box extends AuditFields {
   id: number;
   code: string;
   name: string | null;
@@ -59,7 +79,7 @@ export interface Box {
   folder_count: number;
 }
 
-export interface Folder {
+export interface Folder extends AuditFields {
   id: number;
   retention_id: string;
   code: string;
@@ -96,7 +116,7 @@ export const api = {
 
   // Retention Codes
   listCodes: () => request<RetentionCode[]>("/api/codes/"),
-  createCode: (data: Omit<RetentionCode, "id">) =>
+  createCode: (data: Omit<RetentionCode, "id" | keyof AuditFields>) =>
     request<RetentionCode>("/api/codes/", { method: "POST", body: JSON.stringify(data) }),
   updateCode: (id: number, data: Partial<RetentionCode>) =>
     request<RetentionCode>(`/api/codes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
@@ -105,7 +125,7 @@ export const api = {
 
   // Locations
   listLocations: () => request<Location[]>("/api/locations/"),
-  createLocation: (data: Omit<Location, "id">) =>
+  createLocation: (data: Omit<Location, "id" | keyof AuditFields>) =>
     request<Location>("/api/locations/", { method: "POST", body: JSON.stringify(data) }),
   updateLocation: (id: number, data: Partial<Location>) =>
     request<Location>(`/api/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
@@ -114,7 +134,7 @@ export const api = {
 
   // Archives
   listArchives: () => request<Archive[]>("/api/archives/"),
-  createArchive: (data: Omit<Archive, "id">) =>
+  createArchive: (data: Omit<Archive, "id" | keyof AuditFields>) =>
     request<Archive>("/api/archives/", { method: "POST", body: JSON.stringify(data) }),
   updateArchive: (id: number, data: Partial<Archive>) =>
     request<Archive>(`/api/archives/${id}`, { method: "PATCH", body: JSON.stringify(data) }),

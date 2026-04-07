@@ -1,4 +1,5 @@
 from datetime import date as DateType
+from datetime import datetime as DateTimeType
 from typing import Optional
 
 from pydantic import BaseModel
@@ -34,5 +35,8 @@ class RetentionCodeRead(BaseModel):
     period: Optional[int]
     m_period: Optional[int]
     date: Optional[DateType]
+    created_by: Optional[int] = None
+    modified_by: Optional[int] = None
+    modified_at: Optional[DateTimeType] = None
 
     model_config = {"from_attributes": True}
