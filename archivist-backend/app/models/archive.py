@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, DateTime, Integer, String
 
 from app.database import Base
 
@@ -10,3 +10,6 @@ class Archive(Base):
     code = Column(String, nullable=False)
     name = Column(String, nullable=False)
     address = Column(String, nullable=True)
+    created_by = Column("createdBy", Integer, nullable=True)
+    modified_by = Column("modifiedBy", Integer, nullable=True)
+    modified_at = Column("modifiedAt", DateTime, nullable=True)

@@ -1,5 +1,5 @@
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 
 from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,9 +7,11 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
 from app.models.folder import Folder
 from app.models.retention_code import RetentionCode
+from app.models.user import User
 from app.schemas.folder import FolderCreate, FolderRead, FolderUpdate
 
 router = APIRouter(prefix="/folders", tags=["folders"])
@@ -60,6 +62,9 @@ def _folder_to_read(folder: Folder, db: Session) -> FolderRead:
         expiry_date=folder.expiry_date,
         box_id=folder.box_id,
         retention_code_id=folder.retention_code_id,
+        created_by=folder.created_by,
+        modified_by=folder.modified_by,
+        modified_at=folder.modified_at,
     )
 
 
@@ -67,6 +72,7 @@ def _folder_to_read(folder: Folder, db: Session) -> FolderRead:
 def list_folders(
     unassigned: bool = False,
     db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     query = db.query(Folder)
     if unassigned:
@@ -76,7 +82,7 @@ def list_folders(
 
 
 @router.get("/{folder_id}", response_model=FolderRead)
-def get_folder(folder_id: int, db: Session = Depends(get_db)):
+def get_folder(folder_id: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
@@ -84,7 +90,7 @@ def get_folder(folder_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=FolderRead, status_code=201)
-def create_folder(body: FolderCreate, db: Session = Depends(get_db)):
+def create_folder(body: FolderCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     code_records = db.query(RetentionCode).filter(RetentionCode.code == body.code).all()
     expiry_date = None
     code_id = None
@@ -106,6 +112,7 @@ def create_folder(body: FolderCreate, db: Session = Depends(get_db)):
             start_date=body.start_date,
             expiry_date=expiry_date,
             box_id=body.box_id,
+            created_by=user.id,
         )
         db.add(folder)
         try:
@@ -119,19 +126,21 @@ def create_folder(body: FolderCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/{folder_id}", response_model=FolderRead)
-def update_folder(folder_id: int, body: FolderUpdate, db: Session = Depends(get_db)):
+def update_folder(folder_id: int, body: FolderUpdate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(folder, key, value)
+    folder.modified_by = user.id
+    folder.modified_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(folder)
     return _folder_to_read(folder, db)
 
 
 @router.delete("/{folder_id}", status_code=204)
-def delete_folder(folder_id: int, db: Session = Depends(get_db)):
+def delete_folder(folder_id: int, db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
@@ -140,22 +149,26 @@ def delete_folder(folder_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{folder_id}/assign/{box_id}", response_model=FolderRead)
-def assign_folder_to_box(folder_id: int, box_id: int, db: Session = Depends(get_db)):
+def assign_folder_to_box(folder_id: int, box_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
     folder.box_id = box_id
+    folder.modified_by = user.id
+    folder.modified_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(folder)
     return _folder_to_read(folder, db)
 
 
 @router.post("/{folder_id}/unassign", response_model=FolderRead)
-def unassign_folder(folder_id: int, db: Session = Depends(get_db)):
+def unassign_folder(folder_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
     folder.box_id = None
+    folder.modified_by = user.id
+    folder.modified_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(folder)
     return _folder_to_read(folder, db)

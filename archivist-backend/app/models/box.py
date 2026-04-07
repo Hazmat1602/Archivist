@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, Integer, String
+from sqlalchemy import Column, Date, DateTime, Integer, String
 
 from app.database import Base
 
@@ -13,3 +13,6 @@ class Box(Base):
     expiry_date = Column("expiryDate", Date, nullable=True)
     location_id = Column("locationId", Integer, nullable=True)
     archive_id = Column("archiveId", Integer, nullable=True)
+    created_by = Column("createdBy", Integer, nullable=True)
+    modified_by = Column("modifiedBy", Integer, nullable=True)
+    modified_at = Column("modifiedAt", DateTime, nullable=True)

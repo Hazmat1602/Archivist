@@ -4,5 +4,6 @@ from app.models.location import Location
 from app.models.archive import Archive
 from app.models.box import Box
 from app.models.folder import Folder
+from app.models.user import User
 
-__all__ = ["Category", "RetentionCode", "Location", "Archive", "Box", "Folder"]
+__all__ = ["Category", "RetentionCode", "Location", "Archive", "Box", "Folder", "User"]

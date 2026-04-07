@@ -118,6 +118,7 @@ export function Folders() {
                   <TableHead>Start Date</TableHead>
                   <TableHead>Expiry</TableHead>
                   <TableHead>Box</TableHead>
+                  <TableHead>Modified</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -157,6 +158,15 @@ export function Folders() {
                           Assign
                         </Button>
                       )}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-400">
+                      {f.modified_by != null ? (
+                        <span title={f.modified_at ? new Date(f.modified_at).toLocaleString() : undefined}>
+                          User #{f.modified_by}
+                        </span>
+                      ) : f.created_by != null ? (
+                        <span>Created by #{f.created_by}</span>
+                      ) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(f.id)}>
