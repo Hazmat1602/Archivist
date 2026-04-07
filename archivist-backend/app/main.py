@@ -24,8 +24,9 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Create all tables on startup
-Base.metadata.create_all(bind=engine)
+# Only create the Archives table if it doesn't exist (new table).
+# All other tables already exist in the SQL Server database.
+Archive.__table__.create(bind=engine, checkfirst=True)
 
 # Register routers
 app.include_router(categories_router, prefix="/api")

@@ -40,12 +40,12 @@ export function Settings() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">Engine</span>
-              <Badge variant="secondary">SQLite</Badge>
+              <Badge variant="secondary">SQL Server</Badge>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">Mode</span>
-              <Badge variant="outline">WAL</Badge>
+              <span className="text-sm text-slate-500">Driver</span>
+              <Badge variant="outline">pyodbc (ODBC 18)</Badge>
             </div>
           </CardContent>
         </Card>
@@ -63,7 +63,7 @@ export function Settings() {
             <Separator />
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">Architecture</span>
-              <span className="text-sm">FastAPI + React + SQLite</span>
+              <span className="text-sm">FastAPI + React + SQL Server</span>
             </div>
             <Separator />
             <p className="text-sm text-slate-500">

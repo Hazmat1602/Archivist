@@ -4,7 +4,7 @@ A modern records management system for tracking physical archives, boxes, and fo
 
 ## Architecture
 
-- **Backend** (`archivist-backend/`): FastAPI + SQLAlchemy + SQLite
+- **Backend** (`archivist-backend/`): FastAPI + SQLAlchemy + SQL Server (via pyodbc)
 - **Frontend** (`archivist-frontend/`): React + Vite + Tailwind CSS + shadcn/ui
 
 ## Features
@@ -20,13 +20,37 @@ A modern records management system for tracking physical archives, boxes, and fo
 
 ## Getting Started
 
+### Prerequisites
+
+- **ODBC Driver 18 for SQL Server** must be installed on the machine running the backend.
+  - Windows: Included with SQL Server Management Studio, or [download here](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server)
+  - Ubuntu/Debian:
+    ```bash
+    curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+    curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+    sudo apt-get update && sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+    ```
+
 ### Backend
 
 ```bash
 cd archivist-backend
+cp .env.example .env   # Edit .env with your SQL Server credentials
 poetry install
 poetry run uvicorn app.main:app --reload
 ```
+
+Configure your SQL Server connection by setting environment variables (or editing `.env`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_SERVER` | `localhost` | SQL Server hostname |
+| `DB_NAME` | `Archivist` | Database name |
+| `DB_USERNAME` | `sa` | SQL Server login |
+| `DB_PASSWORD` | *(empty)* | SQL Server password |
+| `DB_DRIVER` | `ODBC Driver 18 for SQL Server` | ODBC driver name |
+| `DB_ENCRYPT` | `Optional` | Connection encryption |
+| `DB_TRUST_CERT` | `Yes` | Trust server certificate |
 
 The API will be available at `http://localhost:8000`. API docs at `http://localhost:8000/docs`.
 
@@ -54,7 +78,7 @@ VITE_API_URL=http://localhost:8000
 |-------|-----------|
 | Backend Framework | FastAPI |
 | ORM | SQLAlchemy |
-| Database | SQLite (WAL mode) |
+| Database | SQL Server (via pyodbc) |
 | Validation | Pydantic |
 | Frontend Framework | React 18 |
 | Build Tool | Vite |
