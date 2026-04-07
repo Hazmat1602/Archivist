@@ -27,6 +27,9 @@ def _box_to_read(box: Box, db: Session) -> BoxRead:
         location_id=box.location_id,
         archive_id=box.archive_id,
         folder_count=folder_count,
+        created_by=box.created_by,
+        modified_by=box.modified_by,
+        modified_at=box.modified_at,
     )
 
 
