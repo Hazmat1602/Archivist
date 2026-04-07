@@ -43,6 +43,26 @@ def _calc_expiry(code_obj: RetentionCode, start: date) -> date | None:
     return None
 
 
+def _folder_to_read(folder: Folder, db: Session) -> FolderRead:
+    """Build a FolderRead from a Folder, looking up the retention code string."""
+    code_str = ""
+    if folder.retention_code_id:
+        rc = db.get(RetentionCode, folder.retention_code_id)
+        if rc:
+            code_str = rc.code
+    return FolderRead(
+        id=folder.id,
+        retention_id=folder.retention_id,
+        code=code_str,
+        name=folder.name,
+        created_date=folder.created_date,
+        start_date=folder.start_date,
+        expiry_date=folder.expiry_date,
+        box_id=folder.box_id,
+        retention_code_id=folder.retention_code_id,
+    )
+
+
 @router.get("/", response_model=list[FolderRead])
 def list_folders(
     unassigned: bool = False,
@@ -51,7 +71,8 @@ def list_folders(
     query = db.query(Folder)
     if unassigned:
         query = query.filter(Folder.box_id.is_(None))
-    return query.all()
+    folders = query.all()
+    return [_folder_to_read(f, db) for f in folders]
 
 
 @router.get("/{folder_id}", response_model=FolderRead)
@@ -59,7 +80,7 @@ def get_folder(folder_id: int, db: Session = Depends(get_db)):
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
-    return folder
+    return _folder_to_read(folder, db)
 
 
 @router.post("/", response_model=FolderRead, status_code=201)
@@ -72,24 +93,26 @@ def create_folder(body: FolderCreate, db: Session = Depends(get_db)):
         code_id = code_obj.id
         expiry_date = _calc_expiry(code_obj, body.start_date)
 
+    if not code_id:
+        raise HTTPException(400, f"Retention code '{body.code}' not found")
+
     for _attempt in range(3):
         retention_id = _generate_retention_id(db, body.code)
         folder = Folder(
             retention_id=retention_id,
-            code=body.code,
+            retention_code_id=code_id,
             name=body.name,
             created_date=date.today(),
             start_date=body.start_date,
             expiry_date=expiry_date,
             box_id=body.box_id,
-            retention_code_id=code_id,
         )
         db.add(folder)
         try:
             db.flush()
             db.commit()
             db.refresh(folder)
-            return folder
+            return _folder_to_read(folder, db)
         except IntegrityError:
             db.rollback()
     raise HTTPException(409, "Failed to generate unique retention ID after retries")
@@ -104,7 +127,7 @@ def update_folder(folder_id: int, body: FolderUpdate, db: Session = Depends(get_
         setattr(folder, key, value)
     db.commit()
     db.refresh(folder)
-    return folder
+    return _folder_to_read(folder, db)
 
 
 @router.delete("/{folder_id}", status_code=204)
@@ -124,7 +147,7 @@ def assign_folder_to_box(folder_id: int, box_id: int, db: Session = Depends(get_
     folder.box_id = box_id
     db.commit()
     db.refresh(folder)
-    return folder
+    return _folder_to_read(folder, db)
 
 
 @router.post("/{folder_id}/unassign", response_model=FolderRead)
@@ -135,4 +158,4 @@ def unassign_folder(folder_id: int, db: Session = Depends(get_db)):
     folder.box_id = None
     db.commit()
     db.refresh(folder)
-    return folder
+    return _folder_to_read(folder, db)
