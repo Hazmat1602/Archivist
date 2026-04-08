@@ -1,4 +1,6 @@
 """Database engine and session configuration for SQL Server via pyodbc."""
+from dotenv import load_dotenv
+load_dotenv() # Load .env for SQL Server Information
 
 import os
 from urllib.parse import quote_plus
@@ -6,6 +8,7 @@ from urllib.parse import quote_plus
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.exc import DBAPIError
 
 # SQL Server connection settings from environment variables
 DB_SERVER = os.environ.get("DB_SERVER", "localhost")
@@ -26,7 +29,6 @@ _DEFAULT_URL = (
 )
 DATABASE_URL = os.environ.get("DATABASE_URL", _DEFAULT_URL)
 
-
 def ensure_database_exists(database_url: str) -> None:
     """Create the target SQL Server database when it is missing."""
     url = make_url(database_url)
@@ -45,14 +47,28 @@ def ensure_database_exists(database_url: str) -> None:
         )
 
 
-try:
-    ensure_database_exists(DATABASE_URL)
-except Exception:
-    # Keep application startup resilient in environments where SQL Server
-    # is intentionally unavailable (e.g., unit tests/CI).
-    pass
+def build_engine(database_url: str):
+    """Build the app engine and create the database on first-run when required."""
+    engine = create_engine(database_url)
+    url = make_url(database_url)
 
-engine = create_engine(DATABASE_URL)
+    if not url.drivername.startswith("mssql") or not url.database:
+        return engine
+
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except DBAPIError as exc:
+        if "Cannot open database" not in str(exc):
+            raise
+        ensure_database_exists(database_url)
+        engine.dispose()
+        engine = create_engine(database_url)
+
+    return engine
+
+
+engine = build_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

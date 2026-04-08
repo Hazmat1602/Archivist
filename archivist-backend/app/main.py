@@ -27,9 +27,13 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    """Create new tables if they don't exist (Archives and Users are new).
-    All other tables already exist in the SQL Server database."""
     try:
+        Folder.__table__.create(bind=engine, checkfirst=True)
+        Box.__table__.create(bind=engine, checkfirst=True)
+        Location.__table__.create(bind=engine, checkfirst=True)
+        RetentionCode.__table__.create(bind=engine, checkfirst=True)
+        Category.__table__.create(bind=engine, checkfirst=True)
+        Location.__table__.create(bind=engine, checkfirst=True)
         Archive.__table__.create(bind=engine, checkfirst=True)
         User.__table__.create(bind=engine, checkfirst=True)
     except Exception:
