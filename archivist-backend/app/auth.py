@@ -1,4 +1,6 @@
 """JWT authentication utilities."""
+from dotenv import load_dotenv
+load_dotenv() # Load .env for SQL Server Information
 
 import os
 from datetime import datetime, timedelta, timezone
@@ -16,7 +18,7 @@ SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "archivist-dev-secret-change-in-pr
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
