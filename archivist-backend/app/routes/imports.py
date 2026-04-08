@@ -70,42 +70,49 @@ async def import_codes(
 ):
     df = await _read_spreadsheet(file)
     created = 0
+    duplicates: list[str] = []
+    failed: list[str] = []
 
-    for _, row in df.iterrows():
+    for row_index, row in df.iterrows():
         if pd.isna(row.get("Code")):
+            failed.append(f"Row {row_index + 2}: missing Code")
             continue
 
         code_value = str(row.get("Code")).strip()
         if db.query(RetentionCode).filter(RetentionCode.code == code_value).first():
+            duplicates.append(code_value)
             continue
 
-        category = _get_or_create_category(db, row.get("Category"), False)
-        subcategory = _get_or_create_category(db, row.get("Sub-Category"), True, category.id)
+        try:
+            category = _get_or_create_category(db, row.get("Category"), False)
+            subcategory = _get_or_create_category(db, row.get("Sub-Category"), True, category.id)
 
-        m_period = None
-        period = None
-        fixed_date = None
+            m_period = None
+            period = None
+            fixed_date = None
 
-        if not pd.isna(row.get("Retention Period")):
-            period, m_period = _split_period(row.get("Retention Period"))
-        elif not pd.isna(row.get("Retention Date")):
-            fixed_date = pd.to_datetime(row.get("Retention Date")).date()
+            if not pd.isna(row.get("Retention Period")):
+                period, m_period = _split_period(row.get("Retention Period"))
+            elif not pd.isna(row.get("Retention Date")):
+                fixed_date = pd.to_datetime(row.get("Retention Date")).date()
 
-        code = RetentionCode(
-            category_id=subcategory.id,
-            code=code_value,
-            name=str(row.get("Name") or "").strip(),
-            code_description=str(row.get("Description") or "").strip(),
-            period_description=str(row.get("Retention Description") or "").strip(),
-            m_period=m_period,
-            period=period,
-            date=fixed_date,
-        )
-        db.add(code)
-        created += 1
+            code = RetentionCode(
+                category_id=subcategory.id,
+                code=code_value,
+                name=str(row.get("Name") or "").strip(),
+                code_description=str(row.get("Description") or "").strip(),
+                period_description=str(row.get("Retention Description") or "").strip(),
+                m_period=m_period,
+                period=period,
+                date=fixed_date,
+            )
+            db.add(code)
+            created += 1
+        except Exception as exc:
+            failed.append(f"Row {row_index + 2} ({code_value}): {exc}")
 
     db.commit()
-    return {"created": created}
+    return {"created": created, "duplicates": duplicates, "failed": failed}
 
 
 @router.post("/locations")
@@ -116,25 +123,32 @@ async def import_locations(
 ):
     df = await _read_spreadsheet(file)
     created = 0
+    duplicates: list[str] = []
+    failed: list[str] = []
 
-    for _, row in df.iterrows():
+    for row_index, row in df.iterrows():
         if pd.isna(row.get("Code")):
+            failed.append(f"Row {row_index + 2}: missing Code")
             continue
 
         room_code = str(row.get("Code")).strip()
         if db.query(Location).filter(Location.code == room_code).first():
+            duplicates.append(room_code)
             continue
 
-        location = Location(
-            code=room_code,
-            description=str(row.get("Description") or "").strip(),
-            local_storage=bool(row.get("On Site")),
-        )
-        db.add(location)
-        created += 1
+        try:
+            location = Location(
+                code=room_code,
+                description=str(row.get("Description") or "").strip(),
+                local_storage=bool(row.get("On Site")),
+            )
+            db.add(location)
+            created += 1
+        except Exception as exc:
+            failed.append(f"Row {row_index + 2} ({room_code}): {exc}")
 
     db.commit()
-    return {"created": created}
+    return {"created": created, "duplicates": duplicates, "failed": failed}
 
 
 def _calc_expiry(code_obj: RetentionCode, start_date: date) -> date | None:
@@ -168,9 +182,12 @@ async def import_folders(
 ):
     df = await _read_spreadsheet(file)
     retention_ids: list[str] = []
+    duplicates: list[str] = []
+    failed: list[str] = []
 
-    for _, row in df.iterrows():
+    for row_index, row in df.iterrows():
         if pd.isna(row.get("Code")):
+            failed.append(f"Row {row_index + 2}: missing Code")
             continue
 
         folder_name = row.get("Name")
@@ -178,25 +195,32 @@ async def import_folders(
         folder_start = row.get("Start Date")
 
         if pd.isna(folder_start):
-            raise HTTPException(status_code=400, detail="Start Date is required for all folders. Import halted.")
+            failed.append(f"Row {row_index + 2} ({folder_code}): missing Start Date")
+            continue
 
         if pd.isna(folder_name):
+            failed.append(f"Row {row_index + 2} ({folder_code}): missing Name")
             continue
 
         try:
             start_date = pd.to_datetime(folder_start).date()
         except (TypeError, ValueError):
+            failed.append(f"Row {row_index + 2} ({folder_code}): invalid Start Date")
             continue
 
         created_date = date.today()
         retention_code = db.query(RetentionCode).filter(RetentionCode.code == folder_code).first()
         if not retention_code:
+            failed.append(f"Row {row_index + 2} ({folder_code}): retention code not found")
             continue
 
         expiry_date = _calc_expiry(retention_code, start_date)
         retention_code_id = retention_code.id
 
         retention_id = _next_folder_retention_id(db, folder_code, created_date.year)
+        if db.query(Folder).filter(Folder.retention_id == retention_id).first():
+            duplicates.append(retention_id)
+            continue
 
         folder = Folder(
             retention_id=retention_id,
@@ -211,7 +235,7 @@ async def import_folders(
         retention_ids.append(retention_id)
 
     db.commit()
-    return {"created": len(retention_ids), "retention_ids": retention_ids}
+    return {"created": len(retention_ids), "retention_ids": retention_ids, "duplicates": duplicates, "failed": failed}
 
 
 def _next_box_code(db: Session, year: int) -> str:
@@ -233,10 +257,13 @@ async def import_boxes(
 ):
     df = await _read_spreadsheet(file)
     created_codes: list[str] = []
+    duplicates: list[str] = []
+    failed: list[str] = []
 
-    for _, row in df.iterrows():
+    for row_index, row in df.iterrows():
         box_name = row.get("Name")
         if pd.isna(box_name):
+            failed.append(f"Row {row_index + 2}: missing Name")
             continue
 
         box_name = str(box_name).strip()
@@ -246,6 +273,11 @@ async def import_boxes(
         retention_ids: list[str] = []
         if not pd.isna(retention_ids_raw) and str(retention_ids_raw).strip():
             retention_ids = [rid.strip() for rid in str(retention_ids_raw).split(",") if rid.strip()]
+
+        existing = db.query(Box).filter(Box.name == box_name).first()
+        if existing:
+            duplicates.append(box_name)
+            continue
 
         folders_to_assign = db.query(Folder).filter(Folder.retention_id.in_(retention_ids)).all() if retention_ids else []
         expiry_dates = [folder.expiry_date for folder in folders_to_assign if folder.expiry_date is not None]
@@ -262,4 +294,4 @@ async def import_boxes(
             folder.modified_at = datetime.now()
 
     db.commit()
-    return {"created": len(created_codes), "box_codes": created_codes}
+    return {"created": len(created_codes), "box_codes": created_codes, "duplicates": duplicates, "failed": failed}

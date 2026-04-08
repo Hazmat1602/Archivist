@@ -11,7 +11,8 @@ type ImportType = "codes" | "locations" | "folders" | "boxes";
 interface ImportResult {
   type: ImportType;
   success: number;
-  errors: string[];
+  duplicates: string[];
+  failed: string[];
 }
 
 export function Imports() {
@@ -30,28 +31,37 @@ export function Imports() {
 
     setImporting(type);
     setResult(null);
-    const errors: string[] = [];
     let success = 0;
+    let duplicates: string[] = [];
+    let failed: string[] = [];
 
     try {
       if (type === "codes") {
         const res = await api.importCodes(file);
         success = res.created;
+        duplicates = res.duplicates;
+        failed = res.failed;
       } else if (type === "locations") {
         const res = await api.importLocations(file);
         success = res.created;
+        duplicates = res.duplicates;
+        failed = res.failed;
       } else if (type === "folders") {
         const res = await api.importFolders(file);
         success = res.created;
+        duplicates = res.duplicates;
+        failed = res.failed;
       } else {
         const res = await api.importBoxes(file);
         success = res.created;
+        duplicates = res.duplicates;
+        failed = res.failed;
       }
     } catch (error) {
-      errors.push(String(error));
+      failed.push(String(error));
     }
 
-    setResult({ type, success, errors });
+    setResult({ type, success, duplicates, failed });
     setImporting(null);
     setFiles((prev) => ({ ...prev, [type]: null }));
   };
@@ -93,7 +103,7 @@ export function Imports() {
       {result && (
         <Card className="mb-6">
           <CardContent className="flex items-center gap-4 pt-6">
-            {result.errors.length === 0 ? (
+            {result.failed.length === 0 ? (
               <CheckCircle className="h-6 w-6 text-emerald-500" />
             ) : (
               <AlertCircle className="h-6 w-6 text-amber-500" />
@@ -101,14 +111,28 @@ export function Imports() {
             <div>
               <p className="font-medium">
                 {result.type} import complete: <Badge variant="success">{result.success} successful</Badge>
-                {result.errors.length > 0 && (
-                  <Badge variant="destructive" className="ml-2">{result.errors.length} errors</Badge>
+                {result.duplicates.length > 0 && (
+                  <Badge className="ml-2" variant="secondary">{result.duplicates.length} duplicates</Badge>
+                )}
+                {result.failed.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">{result.failed.length} failed</Badge>
                 )}
               </p>
-              {result.errors.length > 0 && (
-                <ul className="mt-2 list-disc pl-5 text-sm text-red-600">
-                  {result.errors.map((e, i) => <li key={i}>{e}</li>)}
-                </ul>
+              {result.duplicates.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-amber-700">Duplicates</p>
+                  <ul className="list-disc pl-5 text-sm text-amber-700">
+                    {result.duplicates.map((d, i) => <li key={`dup-${i}`}>{d}</li>)}
+                  </ul>
+                </div>
+              )}
+              {result.failed.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-red-600">Failed Entries</p>
+                  <ul className="list-disc pl-5 text-sm text-red-600">
+                    {result.failed.map((e, i) => <li key={`fail-${i}`}>{e}</li>)}
+                  </ul>
+                </div>
               )}
             </div>
           </CardContent>

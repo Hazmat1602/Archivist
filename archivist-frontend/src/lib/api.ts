@@ -95,6 +95,15 @@ export interface Folder extends AuditFields {
   retention_code_id: number | null;
 }
 
+
+export interface ImportResponse {
+  created: number;
+  duplicates: string[];
+  failed: string[];
+  retention_ids?: string[];
+  box_codes?: string[];
+}
+
 export interface DashboardStats {
   total_folders: number;
   total_boxes: number;
@@ -172,22 +181,22 @@ export const api = {
   importCodes: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return request<{ created: number }>("/api/imports/codes", { method: "POST", body: formData });
+    return request<ImportResponse>("/api/imports/codes", { method: "POST", body: formData });
   },
   importLocations: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return request<{ created: number }>("/api/imports/locations", { method: "POST", body: formData });
+    return request<ImportResponse>("/api/imports/locations", { method: "POST", body: formData });
   },
   importFolders: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return request<{ created: number; retention_ids: string[] }>("/api/imports/folders", { method: "POST", body: formData });
+    return request<ImportResponse>("/api/imports/folders", { method: "POST", body: formData });
   },
   importBoxes: (file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return request<{ created: number; box_codes: string[] }>("/api/imports/boxes", { method: "POST", body: formData });
+    return request<ImportResponse>("/api/imports/boxes", { method: "POST", body: formData });
   },
 
 };
