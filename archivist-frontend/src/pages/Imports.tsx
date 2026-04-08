@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileUp, CheckCircle, AlertCircle } from "lucide-react";
 
-type ImportType = "codes" | "locations" | "folders" | "boxes";
+type ImportType = "Codes" | "Locations" | "Folders" | "Boxes";
 
 interface ImportResult {
   type: ImportType;
@@ -19,10 +19,10 @@ export function Imports() {
   const [importing, setImporting] = useState<ImportType | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [files, setFiles] = useState<Partial<Record<ImportType, File | null>>>({
-    codes: null,
-    locations: null,
-    folders: null,
-    boxes: null,
+    Codes: null,
+    Locations: null,
+    Folders: null,
+    Boxes: null,
   });
 
   const runImport = async (type: ImportType) => {
@@ -36,17 +36,17 @@ export function Imports() {
     let failed: string[] = [];
 
     try {
-      if (type === "codes") {
+      if (type === "Codes") {
         const res = await api.importCodes(file);
         success = res.created;
         duplicates = res.duplicates;
         failed = res.failed;
-      } else if (type === "locations") {
+      } else if (type === "Locations") {
         const res = await api.importLocations(file);
         success = res.created;
         duplicates = res.duplicates;
         failed = res.failed;
-      } else if (type === "folders") {
+      } else if (type === "Folders") {
         const res = await api.importFolders(file);
         success = res.created;
         duplicates = res.duplicates;
@@ -110,40 +110,24 @@ export function Imports() {
             )}
             <div>
               <p className="font-medium">
-                {result.type} import complete: <Badge variant="success">{result.success} successful</Badge>
+                {result.type} Import Complete: <Badge variant="success">{result.success} successful</Badge>
                 {result.duplicates.length > 0 && (
-                  <Badge className="ml-2" variant="secondary">{result.duplicates.length} duplicates</Badge>
+                  <Badge className="ml-2" variant="warning">{result.duplicates.length} duplicates</Badge>
                 )}
                 {result.failed.length > 0 && (
                   <Badge variant="destructive" className="ml-2">{result.failed.length} failed</Badge>
                 )}
               </p>
-              {result.duplicates.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-amber-700">Duplicates</p>
-                  <ul className="list-disc pl-5 text-sm text-amber-700">
-                    {result.duplicates.map((d, i) => <li key={`dup-${i}`}>{d}</li>)}
-                  </ul>
-                </div>
-              )}
-              {result.failed.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-red-600">Failed Entries</p>
-                  <ul className="list-disc pl-5 text-sm text-red-600">
-                    {result.failed.map((e, i) => <li key={`fail-${i}`}>{e}</li>)}
-                  </ul>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {renderImportCard("codes", "Import Retention Codes", "Columns: Category, Sub-Category, Code, Name, Description, Retention Description, Retention Period/Retention Date")}
-        {renderImportCard("locations", "Import Locations", "Columns: Code, Description, On Site")}
-        {renderImportCard("folders", "Import Folders", "Columns: Code, Name, Start Date")}
-        {renderImportCard("boxes", "Import Boxes", "Columns: Name, optional Retention IDs")}
+        {renderImportCard("Codes", "Import Retention Codes", "Columns: Category, Sub-Category, Code, Name, Description, Retention Description, Retention Period/Retention Date")}
+        {renderImportCard("Locations", "Import Locations", "Columns: Code, Description, On Site")}
+        {renderImportCard("Folders", "Import Folders", "Columns: Code, Name, Start Date")}
+        {renderImportCard("Boxes", "Import Boxes", "Columns: Name, optional Retention IDs")}
       </div>
     </div>
   );
