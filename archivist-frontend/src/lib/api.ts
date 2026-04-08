@@ -1,8 +1,11 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(includeJsonContentType = true): Record<string, string> {
   const token = localStorage.getItem("token");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {};
+  if (includeJsonContentType) {
+    headers["Content-Type"] = "application/json";
+  }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -10,8 +13,9 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const isFormData = options?.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { ...getAuthHeaders(), ...options?.headers },
+    headers: { ...getAuthHeaders(!isFormData), ...options?.headers },
     ...options,
   });
   if (res.status === 401) {
@@ -163,4 +167,27 @@ export const api = {
     request<Folder>(`/api/folders/${folderId}/assign/${boxId}`, { method: "POST" }),
   unassignFolder: (folderId: number) =>
     request<Folder>(`/api/folders/${folderId}/unassign`, { method: "POST" }),
+
+  // Imports
+  importCodes: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<{ created: number }>("/api/imports/codes", { method: "POST", body: formData });
+  },
+  importLocations: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<{ created: number }>("/api/imports/locations", { method: "POST", body: formData });
+  },
+  importFolders: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<{ created: number; retention_ids: string[] }>("/api/imports/folders", { method: "POST", body: formData });
+  },
+  importBoxes: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<{ created: number; box_codes: string[] }>("/api/imports/boxes", { method: "POST", body: formData });
+  },
+
 };

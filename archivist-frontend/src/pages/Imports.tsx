@@ -6,68 +6,88 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileUp, CheckCircle, AlertCircle } from "lucide-react";
 
+type ImportType = "codes" | "locations" | "folders" | "boxes";
+
 interface ImportResult {
+  type: ImportType;
   success: number;
   errors: string[];
 }
 
 export function Imports() {
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState<ImportType | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [boxData, setBoxData] = useState("");
-  const [folderData, setFolderData] = useState("");
+  const [files, setFiles] = useState<Partial<Record<ImportType, File | null>>>({
+    codes: null,
+    locations: null,
+    folders: null,
+    boxes: null,
+  });
 
-  const handleImportBoxes = async () => {
-    setImporting(true);
+  const runImport = async (type: ImportType) => {
+    const file = files[type];
+    if (!file) return;
+
+    setImporting(type);
     setResult(null);
-    const lines = boxData.trim().split("\n").filter(Boolean);
-    let success = 0;
     const errors: string[] = [];
+    let success = 0;
 
-    for (const line of lines) {
-      const parts = line.split(",").map((s) => s.trim());
-      if (parts.length < 1) { errors.push(`Invalid line: ${line}`); continue; }
-      try {
-        await api.createBox({ name: parts[0] });
-        success++;
-      } catch (e) {
-        errors.push(`Failed: ${parts[0]} – ${e}`);
+    try {
+      if (type === "codes") {
+        const res = await api.importCodes(file);
+        success = res.created;
+      } else if (type === "locations") {
+        const res = await api.importLocations(file);
+        success = res.created;
+      } else if (type === "folders") {
+        const res = await api.importFolders(file);
+        success = res.created;
+      } else {
+        const res = await api.importBoxes(file);
+        success = res.created;
       }
+    } catch (error) {
+      errors.push(String(error));
     }
 
-    setResult({ success, errors });
-    setImporting(false);
-    setBoxData("");
+    setResult({ type, success, errors });
+    setImporting(null);
+    setFiles((prev) => ({ ...prev, [type]: null }));
   };
 
-  const handleImportFolders = async () => {
-    setImporting(true);
-    setResult(null);
-    const lines = folderData.trim().split("\n").filter(Boolean);
-    let success = 0;
-    const errors: string[] = [];
-
-    for (const line of lines) {
-      const parts = line.split(",").map((s) => s.trim());
-      if (parts.length < 3) { errors.push(`Invalid line (need code,name,start_date): ${line}`); continue; }
-      try {
-        await api.createFolder({ code: parts[0], name: parts[1], start_date: parts[2] });
-        success++;
-      } catch (e) {
-        errors.push(`Failed: ${parts[1]} – ${e}`);
-      }
-    }
-
-    setResult({ success, errors });
-    setImporting(false);
-    setFolderData("");
-  };
+  const renderImportCard = (type: ImportType, title: string, description: string) => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><FileUp className="h-5 w-5" /> {title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor={`file-${type}`}>Excel file (.xlsx / .xlsm)</Label>
+          <input
+            id={`file-${type}`}
+            type="file"
+            accept=".xlsx,.xlsm"
+            className="block w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+            onChange={(e) => {
+              const selectedFile = e.target.files?.[0] ?? null;
+              setFiles((prev) => ({ ...prev, [type]: selectedFile }));
+            }}
+          />
+        </div>
+        <Button onClick={() => runImport(type)} disabled={importing !== null || !files[type]}>
+          <Upload className="mr-2 h-4 w-4" /> Upload & Import
+        </Button>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Import Data</h1>
-        <p className="text-sm text-slate-500">Bulk import boxes and folders from CSV-style text</p>
+        <p className="text-sm text-slate-500">Upload Excel files to import codes, locations, folders, and boxes.</p>
       </div>
 
       {result && (
@@ -80,7 +100,7 @@ export function Imports() {
             )}
             <div>
               <p className="font-medium">
-                Import complete: <Badge variant="success">{result.success} successful</Badge>
+                {result.type} import complete: <Badge variant="success">{result.success} successful</Badge>
                 {result.errors.length > 0 && (
                   <Badge variant="destructive" className="ml-2">{result.errors.length} errors</Badge>
                 )}
@@ -96,47 +116,10 @@ export function Imports() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><FileUp className="h-5 w-5" /> Import Boxes</CardTitle>
-            <CardDescription>One box name per line</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Box Names (one per line)</Label>
-              <textarea
-                className="flex min-h-32 w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
-                value={boxData}
-                onChange={(e) => setBoxData(e.target.value)}
-                placeholder={"HR Records 2024\nFinance Q1\nLegal Contracts"}
-              />
-            </div>
-            <Button onClick={handleImportBoxes} disabled={importing || !boxData.trim()}>
-              <Upload className="mr-2 h-4 w-4" /> Import Boxes
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><FileUp className="h-5 w-5" /> Import Folders</CardTitle>
-            <CardDescription>Format: code, name, start_date (one per line)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Folder Data (CSV format)</Label>
-              <textarea
-                className="flex min-h-32 w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
-                value={folderData}
-                onChange={(e) => setFolderData(e.target.value)}
-                placeholder={"HR01, Employee Files 2024, 2024-01-15\nFIN01, Q1 Reports, 2024-03-31"}
-              />
-            </div>
-            <Button onClick={handleImportFolders} disabled={importing || !folderData.trim()}>
-              <Upload className="mr-2 h-4 w-4" /> Import Folders
-            </Button>
-          </CardContent>
-        </Card>
+        {renderImportCard("codes", "Import Retention Codes", "Columns: Category, Sub-Category, Code, Name, Description, Retention Description, Retention Period/Retention Date")}
+        {renderImportCard("locations", "Import Locations", "Columns: Code, Description, On Site")}
+        {renderImportCard("folders", "Import Folders", "Columns: Code, Name, Start Date")}
+        {renderImportCard("boxes", "Import Boxes", "Columns: Name, optional Retention IDs")}
       </div>
     </div>
   );
