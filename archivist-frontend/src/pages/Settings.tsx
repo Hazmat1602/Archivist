@@ -23,7 +23,7 @@ export function Settings() {
         } else {
           setStatus("error");
         }
-      } catch {
+      } catch (err) {
         setStatus("error");
       }
     };

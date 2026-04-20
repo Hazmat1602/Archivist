@@ -1,175 +1,572 @@
 import * as React from "react";
+import {
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    useReactTable,
+    type ColumnDef,
+    type ColumnFiltersState,
+    type FilterFn,
+    type SortingState,
+} from "@tanstack/react-table";
+import {
+    ArrowDownAZ,
+    ArrowUpAZ,
+    ChevronDown,
+    ChevronUp,
+    ChevronsUpDown,
+    ListFilter,
+    Search,
+    ChevronsLeft,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsRight,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
-export type ExcelColumnDef<TData> = {
-  accessorKey: keyof TData | string;
-  header: React.ReactNode;
-  cell?: (context: { row: { original: TData } }) => React.ReactNode;
-  meta?: {
-    className?: string;
-    headerClassName?: string;
-    filterVariant?: "text" | "select" | "none";
-    filterPlaceholder?: string;
-    filterOptions?: { label: string; value: string }[];
-    getOptionLabel?: (row: TData) => string;
-    getFilterValue?: (row: TData) => string;
-  };
-  // Allow page-level column configs without enforcing behaviour in this lightweight table.
-  [key: string]: unknown;
+type FilterVariant = "text" | "select" | "none";
+
+type MultiValueFilter = {
+    selectedValues: string[];
 };
 
-type ExcelStyleDataTableProps<TData> = {
-  columns: ExcelColumnDef<TData>[];
-  data: TData[];
-  pageSize?: number;
-  emptyMessage?: string;
+export type ExcelColumnDef<TData, TValue = unknown> = ColumnDef<TData, TValue> & {
+    meta?: {
+        className?: string;
+        headerClassName?: string;
+        filterVariant?: FilterVariant;
+        filterPlaceholder?: string;
+        filterOptions?: { label: string; value: string }[];
+        getOptionLabel?: (row: TData) => string;
+        getFilterValue?: (row: TData) => string;
+    };
 };
 
-function getCellValue<TData>(row: TData, accessorKey: keyof TData | string) {
-  if (typeof accessorKey !== "string") {
-    return row[accessorKey];
-  }
+type ExcelStyleDataTableProps<TData, TValue = unknown> = {
+    columns: ExcelColumnDef<TData, TValue>[];
+    data: TData[];
+    pageSize?: number;
+    emptyMessage?: string;
+};
 
-  return (row as Record<string, unknown>)[accessorKey];
+const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue) => {
+    if (
+        !filterValue ||
+        !Array.isArray(filterValue.selectedValues) ||
+        filterValue.selectedValues.length === 0
+    ) {
+        return true;
+    }
+
+    const raw = row.getValue(columnId);
+    const rowValue = raw == null ? "" : String(raw);
+
+    return filterValue.selectedValues.includes(rowValue);
+};
+
+function SortIcon({ sorted }: { sorted: false | "asc" | "desc" }) {
+    if (sorted === "asc") return <ChevronUp className="h-4 w-4" />;
+    if (sorted === "desc") return <ChevronDown className="h-4 w-4" />;
+    return <ChevronsUpDown className="h-4 w-4 opacity-50" />;
 }
 
-export function ExcelStyleDataTable<TData>({
-  columns,
-  data,
-  pageSize = 10,
-  emptyMessage = "No results.",
-}: ExcelStyleDataTableProps<TData>) {
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const [rowsPerPage, setRowsPerPage] = React.useState(pageSize);
+function HeaderFilterMenu<TData>({
+                                     column,
+                                     title,
+                                     data,
+                                 }: {
+    column: any;
+    title: React.ReactNode;
+    data: TData[];
+}) {
+    const meta = column.columnDef.meta;
+    const filterVariant: FilterVariant = meta?.filterVariant ?? "text";
 
-  React.useEffect(() => {
-    setRowsPerPage(pageSize);
-  }, [pageSize]);
+    const filterValue = column.getFilterValue() as MultiValueFilter | undefined;
+    const appliedSelectedValues = React.useMemo(
+        () => filterValue?.selectedValues ?? [],
+        [filterValue]
+    );
 
-  React.useEffect(() => {
-    const totalPages = Math.max(Math.ceil(data.length / rowsPerPage), 1);
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+    const appliedSelectedKey = React.useMemo(
+        () => appliedSelectedValues.join("||"),
+        [appliedSelectedValues]
+    );
+
+    const [open, setOpen] = React.useState(false);
+    const [search, setSearch] = React.useState("");
+    const [draftSelected, setDraftSelected] = React.useState<string[]>(appliedSelectedValues);
+
+    React.useEffect(() => {
+        if (open) {
+            setDraftSelected(appliedSelectedValues);
+            setSearch("");
+        }
+    }, [open, appliedSelectedKey, appliedSelectedValues]);
+
+    if (filterVariant === "none") {
+        return (
+            <div className="flex items-center gap-2">
+                <span>{title}</span>
+                {column.getCanSort() && <SortIcon sorted={column.getIsSorted()} />}
+            </div>
+        );
     }
-  }, [currentPage, data.length, rowsPerPage]);
 
-  const totalPages = Math.max(Math.ceil(data.length / rowsPerPage), 1);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const pageRows = data.slice(startIndex, startIndex + rowsPerPage);
+    const options = React.useMemo(() => {
+        if (meta?.filterOptions?.length) {
+            return meta.filterOptions;
+        }
 
-  return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((column, idx) => (
-                <TableHead
-                  key={`${String(column.accessorKey)}-${idx}`}
-                  className={column.meta?.headerClassName}
+        const values = new Map<string, string>();
+
+        for (const row of data) {
+            const rawValue = meta?.getFilterValue
+                ? meta.getFilterValue(row)
+                : column.accessorFn
+                    ? column.accessorFn(row, 0)
+                    : column.accessorKey
+                        ? (row as any)[column.accessorKey]
+                        : undefined;
+
+            const value = rawValue == null ? "" : String(rawValue);
+            const label = meta?.getOptionLabel ? meta.getOptionLabel(row) : value || "(Blank)";
+
+            if (!values.has(value)) {
+                values.set(value, label);
+            }
+        }
+
+        return Array.from(values.entries())
+            .map(([value, label]) => ({ value, label }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [data, meta, column]);
+
+    const filteredOptions = React.useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return options;
+        return options.filter((option) => option.label.toLowerCase().includes(q));
+    }, [options, search]);
+
+    const allVisibleSelected =
+        filteredOptions.length > 0 &&
+        filteredOptions.every((option) => draftSelected.includes(option.value));
+
+    const someVisibleSelected =
+        filteredOptions.some((option) => draftSelected.includes(option.value)) && !allVisibleSelected;
+
+    const hasActiveFilter = appliedSelectedValues.length > 0;
+
+    const toggleValue = (value: string, checked: boolean) => {
+        setDraftSelected((prev) =>
+            checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
+        );
+    };
+
+    const handleSelectAllVisible = (checked: boolean) => {
+        if (checked) {
+            setDraftSelected((prev) => {
+                const merged = new Set([...prev, ...filteredOptions.map((o) => o.value)]);
+                return Array.from(merged);
+            });
+        } else {
+            setDraftSelected((prev) =>
+                prev.filter((value) => !filteredOptions.some((o) => o.value === value))
+            );
+        }
+    };
+
+    const applyFilter = () => {
+        const normalisedDraft = Array.from(new Set(draftSelected));
+
+        if (normalisedDraft.length === 0 || normalisedDraft.length === options.length) {
+            column.setFilterValue(undefined);
+        } else {
+            column.setFilterValue({ selectedValues: normalisedDraft });
+        }
+
+        setOpen(false);
+    };
+
+    const clearFilter = () => {
+        setDraftSelected([]);
+        setSearch("");
+        column.setFilterValue(undefined);
+        setOpen(false);
+    };
+
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <button
+                type="button"
+                className="flex items-center gap-2 text-left font-semibold"
+                onClick={column.getToggleSortingHandler()}
+            >
+                <span>{title}</span>
+                {column.getCanSort() && <SortIcon sorted={column.getIsSorted()} />}
+            </button>
+
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "relative h-7 w-7 shrink-0 rounded-sm border transition-colours",
+                            hasActiveFilter
+                                ? "border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                : "border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                        )}
+                    >
+                        <ListFilter className="h-4 w-4" />
+                        {hasActiveFilter && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white">
+                {appliedSelectedValues.length}
+              </span>
+                        )}
+                    </Button>
+                </PopoverTrigger>
+
+                <PopoverContent
+                    align="end"
+                    className="z-50 w-[320px] border bg-white p-0 shadow-md"
                 >
-                  {column.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
+                    <div className="border-b p-2">
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-slate-100"
+                            onClick={() => {
+                                column.toggleSorting(false);
+                                setOpen(false);
+                            }}
+                        >
+                            <ArrowUpAZ className="h-4 w-4" />
+                            Sort A to Z
+                        </button>
 
-          <TableBody>
-            {pageRows.length ? (
-              pageRows.map((row, rowIndex) => (
-                <TableRow key={rowIndex}>
-                  {columns.map((column, columnIndex) => {
-                    const content = column.cell
-                      ? column.cell({ row: { original: row } })
-                      : String(getCellValue(row, column.accessorKey) ?? "—");
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-slate-100"
+                            onClick={() => {
+                                column.toggleSorting(true);
+                                setOpen(false);
+                            }}
+                        >
+                            <ArrowDownAZ className="h-4 w-4" />
+                            Sort Z to A
+                        </button>
 
-                    return (
-                      <TableCell
-                        key={`${String(column.accessorKey)}-${columnIndex}`}
-                        className={column.meta?.className}
-                      >
-                        {content}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-slate-500">
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                        <button
+                            type="button"
+                            className="mt-1 flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={clearFilter}
+                            disabled={!hasActiveFilter}
+                        >
+                            <ListFilter className="h-4 w-4" />
+                            Clear Filter From "{String(title)}"
+                        </button>
+                    </div>
 
-      <div className="flex flex-col gap-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          Showing {pageRows.length} of {data.length} rows
+                    <div className="border-b p-2">
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                            <Input
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Search"
+                                className="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto p-2">
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-2 hover:bg-slate-100"
+                            onClick={() => handleSelectAllVisible(!allVisibleSelected)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    handleSelectAllVisible(!allVisibleSelected);
+                                }
+                            }}
+                        >
+                            <Checkbox
+                                checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                                onClick={(e) => e.stopPropagation()}
+                                onCheckedChange={(checked) => handleSelectAllVisible(checked === true)}
+                            />
+                            <span className="text-sm">(Select All)</span>
+                        </div>
+
+                        {filteredOptions.map((option) => {
+                            const checked = draftSelected.includes(option.value);
+
+                            return (
+                                <div
+                                    key={option.value}
+                                    role="button"
+                                    tabIndex={0}
+                                    className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-2 hover:bg-slate-100"
+                                    onClick={() => toggleValue(option.value, !checked)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            toggleValue(option.value, !checked);
+                                        }
+                                    }}
+                                >
+                                    <Checkbox
+                                        checked={checked}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onCheckedChange={(nextChecked) => toggleValue(option.value, nextChecked === true)}
+                                    />
+                                    <span className="text-sm">{option.label}</span>
+                                </div>
+                            );
+                        })}
+
+                        {filteredOptions.length === 0 && (
+                            <div className="px-2 py-3 text-sm text-slate-500">No matching values</div>
+                        )}
+                    </div>
+
+                    <div className="flex justify-end gap-2 border-t p-2">
+                        <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button size="sm" onClick={applyFilter}>
+                            OK
+                        </Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
         </div>
+    );
+}
 
-        <div className="flex items-center gap-2">
-          <span>Rows per page</span>
-          <Select
-            value={String(rowsPerPage)}
-            onValueChange={(value) => {
-              setRowsPerPage(Number(value));
-              setCurrentPage(1);
-            }}
-          >
-            <SelectTrigger className="h-8 w-[90px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[10, 20, 50, 100].map((size) => (
-                <SelectItem key={size} value={String(size)}>
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+export function ExcelStyleDataTable<TData, TValue = unknown>({
+                                                                 columns,
+                                                                 data,
+                                                                 pageSize = 10,
+                                                                 emptyMessage = "No results.",
+                                                             }: ExcelStyleDataTableProps<TData, TValue>) {
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
-            disabled={currentPage <= 1}
-          >
-            Prev
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
-            disabled={currentPage >= totalPages}
-          >
-            Next
-          </Button>
+    const table = useReactTable({
+        data,
+        columns,
+        filterFns: {
+            excelLikeMultiValue: excelLikeMultiValueFilter,
+        },
+        state: {
+            sorting,
+            columnFilters,
+        },
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        initialState: {
+            pagination: {
+                pageIndex: 0,
+                pageSize,
+            },
+        },
+    });
+
+    const [pageInput, setPageInput] = React.useState("1");
+
+    React.useEffect(() => {
+        setPageInput(String(table.getState().pagination.pageIndex + 1));
+    }, [table.getState().pagination.pageIndex]);
+
+    const pageCount = Math.max(table.getPageCount(), 1);
+
+    return (
+        <div className="space-y-4">
+            <div className="overflow-x-auto overflow-y-visible rounded-md border">
+                <Table>
+                    <TableHeader>
+                        {table.getHeaderGroups().map((headerGroup) => (
+                            <TableRow key={headerGroup.id}>
+                                {headerGroup.headers.map((header) => {
+                                    const meta = header.column.columnDef.meta;
+
+                                    return (
+                                        <TableHead key={header.id} className={meta?.headerClassName}>
+                                            {header.isPlaceholder ? null : (
+                                                <HeaderFilterMenu
+                                                    column={header.column}
+                                                    title={flexRender(header.column.columnDef.header, header.getContext())}
+                                                    data={data}
+                                                />
+                                            )}
+                                        </TableHead>
+                                    );
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableHeader>
+
+                    <TableBody>
+                        {table.getRowModel().rows.length ? (
+                            table.getRowModel().rows.map((row) => (
+                                <TableRow key={row.id}>
+                                    {row.getVisibleCells().map((cell) => {
+                                        const meta = cell.column.columnDef.meta;
+                                        return (
+                                            <TableCell key={cell.id} className={meta?.className}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        );
+                                    })}
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={columns.length} className="h-24 text-center text-slate-500">
+                                    {emptyMessage}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="text-sm text-slate-500">
+                    Showing {table.getRowModel().rows.length} of {table.getFilteredRowModel().rows.length} filtered rows
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600">Rows per page</span>
+                        <Select
+                            value={String(table.getState().pagination.pageSize)}
+                            onValueChange={(value) => {
+                                table.setPageSize(Number(value));
+                                table.setPageIndex(0);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[90px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {[10, 20, 50, 100].map((size) => (
+                                    <SelectItem key={size} value={String(size)}>
+                                        {size}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.setPageIndex(0)}
+                            disabled={!table.getCanPreviousPage()}
+                        >
+                            <ChevronsLeft className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span>
+                Page {table.getState().pagination.pageIndex + 1} of {pageCount}
+              </span>
+                            <span>|</span>
+                            <span>Go to page</span>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={pageCount}
+                                value={pageInput}
+                                onChange={(e) => setPageInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        const value = Number(pageInput);
+                                        if (!Number.isNaN(value)) {
+                                            const page = Math.min(Math.max(value, 1), pageCount) - 1;
+                                            table.setPageIndex(page);
+                                        }
+                                    }
+                                }}
+                                onBlur={() => {
+                                    const value = Number(pageInput);
+                                    if (!Number.isNaN(value)) {
+                                        const page = Math.min(Math.max(value, 1), pageCount) - 1;
+                                        table.setPageIndex(page);
+                                    } else {
+                                        setPageInput(String(table.getState().pagination.pageIndex + 1));
+                                    }
+                                }}
+                                className="h-8 w-20"
+                            />
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.setPageIndex(pageCount - 1)}
+                            disabled={!table.getCanNextPage()}
+                        >
+                            <ChevronsRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default ExcelStyleDataTable;
