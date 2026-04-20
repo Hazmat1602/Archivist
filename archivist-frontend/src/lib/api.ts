@@ -1,8 +1,11 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-function getAuthHeaders(): Record<string, string> {
+function getAuthHeaders(includeJsonContentType = true): Record<string, string> {
   const token = localStorage.getItem("token");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {};
+  if (includeJsonContentType) {
+    headers["Content-Type"] = "application/json";
+  }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -10,8 +13,9 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const isFormData = options?.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { ...getAuthHeaders(), ...options?.headers },
+    headers: { ...getAuthHeaders(!isFormData), ...options?.headers },
     ...options,
   });
   if (res.status === 401) {
@@ -91,6 +95,15 @@ export interface Folder extends AuditFields {
   retention_code_id: number | null;
 }
 
+
+export interface ImportResponse {
+  created: number;
+  duplicates: string[];
+  failed: string[];
+  retention_ids?: string[];
+  box_codes?: string[];
+}
+
 export interface DashboardStats {
   total_folders: number;
   total_boxes: number;
@@ -163,4 +176,27 @@ export const api = {
     request<Folder>(`/api/folders/${folderId}/assign/${boxId}`, { method: "POST" }),
   unassignFolder: (folderId: number) =>
     request<Folder>(`/api/folders/${folderId}/unassign`, { method: "POST" }),
+
+  // Imports
+  importCodes: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<ImportResponse>("/api/imports/codes", { method: "POST", body: formData });
+  },
+  importLocations: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<ImportResponse>("/api/imports/locations", { method: "POST", body: formData });
+  },
+  importFolders: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<ImportResponse>("/api/imports/folders", { method: "POST", body: formData });
+  },
+  importBoxes: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<ImportResponse>("/api/imports/boxes", { method: "POST", body: formData });
+  },
+
 };

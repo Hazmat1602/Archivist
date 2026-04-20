@@ -12,6 +12,7 @@ from app.routes import (
     folders_router,
     locations_router,
     stats_router,
+    imports_router,
 )
 
 app = FastAPI(title="Archivist API", version="1.0.0")
@@ -50,6 +51,7 @@ app.include_router(archives_router, prefix="/api")
 app.include_router(boxes_router, prefix="/api")
 app.include_router(folders_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
+app.include_router(imports_router, prefix="/api")
 
 
 @app.get("/health")
