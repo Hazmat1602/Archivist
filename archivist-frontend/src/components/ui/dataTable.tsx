@@ -1,303 +1,572 @@
 import * as React from "react";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronsLeft,
-  ChevronsRight,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    useReactTable,
+    type ColumnDef,
+    type ColumnFiltersState,
+    type FilterFn,
+    type SortingState,
+} from "@tanstack/react-table";
+import {
+    ArrowDownAZ,
+    ArrowUpAZ,
+    ChevronDown,
+    ChevronUp,
+    ChevronsUpDown,
+    ListFilter,
+    Search,
+    ChevronsLeft,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsRight,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type FilterVariant = "text" | "select" | "none";
 
-type FilterOption = { label: string; value: string };
-
-type RowContext<TData> = { row: { original: TData } };
-
-type HeaderContext<TData> = { column: ExcelColumnDef<TData>; direction: false | "asc" | "desc" };
-
-export type ExcelColumnDef<TData> = {
-  accessorKey: Extract<keyof TData, string>;
-  header: React.ReactNode;
-  cell?: (context: RowContext<TData>) => React.ReactNode;
-  enableSorting?: boolean;
-  enableColumnFilter?: boolean;
-  filterFn?: string;
-  sortingFn?: (a: TData, b: TData, id: Extract<keyof TData, string>) => number;
-  meta?: {
-    className?: string;
-    headerClassName?: string;
-    filterVariant?: FilterVariant;
-    filterPlaceholder?: string;
-    filterOptions?: FilterOption[];
-    getOptionLabel?: (row: TData) => string;
-    getFilterValue?: (row: TData) => string;
-  };
-  headerRenderer?: (context: HeaderContext<TData>) => React.ReactNode;
+type MultiValueFilter = {
+    selectedValues: string[];
 };
 
-type ExcelStyleDataTableProps<TData> = {
-  columns: ExcelColumnDef<TData>[];
-  data: TData[];
-  pageSize?: number;
-  emptyMessage?: string;
+export type ExcelColumnDef<TData, TValue = unknown> = ColumnDef<TData, TValue> & {
+    meta?: {
+        className?: string;
+        headerClassName?: string;
+        filterVariant?: FilterVariant;
+        filterPlaceholder?: string;
+        filterOptions?: { label: string; value: string }[];
+        getOptionLabel?: (row: TData) => string;
+        getFilterValue?: (row: TData) => string;
+    };
 };
 
-function getRawValue<TData>(row: TData, column: ExcelColumnDef<TData>): unknown {
-  return row[column.accessorKey];
-}
+type ExcelStyleDataTableProps<TData, TValue = unknown> = {
+    columns: ExcelColumnDef<TData, TValue>[];
+    data: TData[];
+    pageSize?: number;
+    emptyMessage?: string;
+};
 
-function getStringValue<TData>(row: TData, column: ExcelColumnDef<TData>): string {
-  const raw = column.meta?.getFilterValue ? column.meta.getFilterValue(row) : getRawValue(row, column);
-  return raw == null ? "" : String(raw);
-}
-
-function SortIcon({ direction }: { direction: false | "asc" | "desc" }) {
-  if (direction === "asc") return <ChevronUp className="h-4 w-4" />;
-  if (direction === "desc") return <ChevronDown className="h-4 w-4" />;
-  return null;
-}
-
-export function ExcelStyleDataTable<TData>({
-  columns,
-  data,
-  pageSize = 10,
-  emptyMessage = "No results.",
-}: ExcelStyleDataTableProps<TData>) {
-  const [sort, setSort] = React.useState<{ key: string; direction: "asc" | "desc" } | null>(null);
-  const [filters, setFilters] = React.useState<Record<string, string>>({});
-  const [currentPage, setCurrentPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(pageSize);
-  const [pageInput, setPageInput] = React.useState("1");
-
-  const filterOptions = React.useMemo(() => {
-    const optionsByColumn: Record<string, FilterOption[]> = {};
-
-    for (const column of columns) {
-      if (!column.enableColumnFilter || column.meta?.filterVariant === "none") continue;
-
-      if (column.meta?.filterOptions?.length) {
-        optionsByColumn[column.accessorKey] = column.meta.filterOptions;
-        continue;
-      }
-
-      const values = new Map<string, string>();
-      for (const row of data) {
-        const value = getStringValue(row, column);
-        const label = column.meta?.getOptionLabel ? column.meta.getOptionLabel(row) : value || "(Blank)";
-
-        if (!values.has(value)) {
-          values.set(value, label);
-        }
-      }
-
-      optionsByColumn[column.accessorKey] = Array.from(values.entries())
-        .map(([value, label]) => ({ value, label }))
-        .sort((a, b) => a.label.localeCompare(b.label));
+const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue) => {
+    if (
+        !filterValue ||
+        !Array.isArray(filterValue.selectedValues) ||
+        filterValue.selectedValues.length === 0
+    ) {
+        return true;
     }
 
-    return optionsByColumn;
-  }, [columns, data]);
+    const raw = row.getValue(columnId);
+    const rowValue = raw == null ? "" : String(raw);
 
-  const filteredData = React.useMemo(() => {
-    return data.filter((row) =>
-      columns.every((column) => {
-        if (!column.enableColumnFilter || column.meta?.filterVariant === "none") return true;
-        const selected = filters[column.accessorKey];
-        if (!selected) return true;
-        return getStringValue(row, column) === selected;
-      })
+    return filterValue.selectedValues.includes(rowValue);
+};
+
+function SortIcon({ sorted }: { sorted: false | "asc" | "desc" }) {
+    if (sorted === "asc") return <ChevronUp className="h-4 w-4" />;
+    if (sorted === "desc") return <ChevronDown className="h-4 w-4" />;
+    return <ChevronsUpDown className="h-4 w-4 opacity-50" />;
+}
+
+function HeaderFilterMenu<TData>({
+                                     column,
+                                     title,
+                                     data,
+                                 }: {
+    column: any;
+    title: React.ReactNode;
+    data: TData[];
+}) {
+    const meta = column.columnDef.meta;
+    const filterVariant: FilterVariant = meta?.filterVariant ?? "text";
+
+    const filterValue = column.getFilterValue() as MultiValueFilter | undefined;
+    const appliedSelectedValues = React.useMemo(
+        () => filterValue?.selectedValues ?? [],
+        [filterValue]
     );
-  }, [columns, data, filters]);
 
-  const sortedData = React.useMemo(() => {
-    if (!sort) return filteredData;
+    const appliedSelectedKey = React.useMemo(
+        () => appliedSelectedValues.join("||"),
+        [appliedSelectedValues]
+    );
 
-    const column = columns.find((c) => c.accessorKey === sort.key);
-    if (!column) return filteredData;
+    const [open, setOpen] = React.useState(false);
+    const [search, setSearch] = React.useState("");
+    const [draftSelected, setDraftSelected] = React.useState<string[]>(appliedSelectedValues);
 
-    const directionFactor = sort.direction === "asc" ? 1 : -1;
+    React.useEffect(() => {
+        if (open) {
+            setDraftSelected(appliedSelectedValues);
+            setSearch("");
+        }
+    }, [open, appliedSelectedKey, appliedSelectedValues]);
 
-    return [...filteredData].sort((a, b) => {
-      if (column.sortingFn) {
-        return column.sortingFn(a, b, column.accessorKey) * directionFactor;
-      }
-
-      const aValue = getRawValue(a, column);
-      const bValue = getRawValue(b, column);
-      const aText = aValue == null ? "" : String(aValue);
-      const bText = bValue == null ? "" : String(bValue);
-      return aText.localeCompare(bText) * directionFactor;
-    });
-  }, [columns, filteredData, sort]);
-
-  const pageCount = Math.max(1, Math.ceil(sortedData.length / rowsPerPage));
-  const safePage = Math.min(currentPage, pageCount - 1);
-  const pagedRows = React.useMemo(() => {
-    const start = safePage * rowsPerPage;
-    return sortedData.slice(start, start + rowsPerPage);
-  }, [safePage, rowsPerPage, sortedData]);
-
-  React.useEffect(() => {
-    setCurrentPage(0);
-  }, [filters, rowsPerPage, sort]);
-
-  React.useEffect(() => {
-    setPageInput(String(safePage + 1));
-  }, [safePage]);
-
-  const toggleSort = (column: ExcelColumnDef<TData>) => {
-    if (!column.enableSorting) return;
-
-    setSort((prev) => {
-      if (!prev || prev.key !== column.accessorKey) return { key: column.accessorKey, direction: "asc" };
-      if (prev.direction === "asc") return { key: column.accessorKey, direction: "desc" };
-      return null;
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
-        {columns
-          .filter((column) => column.enableColumnFilter && column.meta?.filterVariant !== "none")
-          .map((column) => (
-            <div key={column.accessorKey} className="space-y-1">
-              <div className="text-xs font-medium text-slate-500">{column.header}</div>
-              <Select
-                value={filters[column.accessorKey] ?? "__ALL__"}
-                onValueChange={(value) => {
-                  setFilters((prev) => ({
-                    ...prev,
-                    [column.accessorKey]: value === "__ALL__" ? "" : value,
-                  }));
-                }}
-              >
-                <SelectTrigger className="h-8">
-                  <SelectValue placeholder={column.meta?.filterPlaceholder || "All"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__ALL__">All</SelectItem>
-                  {(filterOptions[column.accessorKey] ?? []).map((option) => (
-                    <SelectItem key={`${column.accessorKey}-${option.value}`} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+    if (filterVariant === "none") {
+        return (
+            <div className="flex items-center gap-2">
+                <span>{title}</span>
+                {column.getCanSort() && <SortIcon sorted={column.getIsSorted()} />}
             </div>
-          ))}
-      </div>
+        );
+    }
 
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((column) => {
-                const direction = sort?.key === column.accessorKey ? sort.direction : false;
+    const options = React.useMemo(() => {
+        if (meta?.filterOptions?.length) {
+            return meta.filterOptions;
+        }
 
-                return (
-                  <TableHead key={column.accessorKey} className={column.meta?.headerClassName}>
-                    <button
-                      type="button"
-                      className="flex items-center gap-1 font-semibold"
-                      onClick={() => toggleSort(column)}
+        const values = new Map<string, string>();
+
+        for (const row of data) {
+            const rawValue = meta?.getFilterValue
+                ? meta.getFilterValue(row)
+                : column.accessorFn
+                    ? column.accessorFn(row, 0)
+                    : column.accessorKey
+                        ? (row as any)[column.accessorKey]
+                        : undefined;
+
+            const value = rawValue == null ? "" : String(rawValue);
+            const label = meta?.getOptionLabel ? meta.getOptionLabel(row) : value || "(Blank)";
+
+            if (!values.has(value)) {
+                values.set(value, label);
+            }
+        }
+
+        return Array.from(values.entries())
+            .map(([value, label]) => ({ value, label }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [data, meta, column]);
+
+    const filteredOptions = React.useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return options;
+        return options.filter((option) => option.label.toLowerCase().includes(q));
+    }, [options, search]);
+
+    const allVisibleSelected =
+        filteredOptions.length > 0 &&
+        filteredOptions.every((option) => draftSelected.includes(option.value));
+
+    const someVisibleSelected =
+        filteredOptions.some((option) => draftSelected.includes(option.value)) && !allVisibleSelected;
+
+    const hasActiveFilter = appliedSelectedValues.length > 0;
+
+    const toggleValue = (value: string, checked: boolean) => {
+        setDraftSelected((prev) =>
+            checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
+        );
+    };
+
+    const handleSelectAllVisible = (checked: boolean) => {
+        if (checked) {
+            setDraftSelected((prev) => {
+                const merged = new Set([...prev, ...filteredOptions.map((o) => o.value)]);
+                return Array.from(merged);
+            });
+        } else {
+            setDraftSelected((prev) =>
+                prev.filter((value) => !filteredOptions.some((o) => o.value === value))
+            );
+        }
+    };
+
+    const applyFilter = () => {
+        const normalisedDraft = Array.from(new Set(draftSelected));
+
+        if (normalisedDraft.length === 0 || normalisedDraft.length === options.length) {
+            column.setFilterValue(undefined);
+        } else {
+            column.setFilterValue({ selectedValues: normalisedDraft });
+        }
+
+        setOpen(false);
+    };
+
+    const clearFilter = () => {
+        setDraftSelected([]);
+        setSearch("");
+        column.setFilterValue(undefined);
+        setOpen(false);
+    };
+
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <button
+                type="button"
+                className="flex items-center gap-2 text-left font-semibold"
+                onClick={column.getToggleSortingHandler()}
+            >
+                <span>{title}</span>
+                {column.getCanSort() && <SortIcon sorted={column.getIsSorted()} />}
+            </button>
+
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "relative h-7 w-7 shrink-0 rounded-sm border transition-colours",
+                            hasActiveFilter
+                                ? "border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                : "border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                        )}
                     >
-                      {column.header}
-                      <SortIcon direction={direction} />
-                    </button>
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {pagedRows.length > 0 ? (
-              pagedRows.map((row, index) => (
-                <TableRow key={index}>
-                  {columns.map((column) => (
-                    <TableCell key={column.accessorKey} className={column.meta?.className}>
-                      {column.cell ? column.cell({ row: { original: row } }) : String(getRawValue(row, column) ?? "")}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-slate-500">
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                        <ListFilter className="h-4 w-4" />
+                        {hasActiveFilter && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white">
+                {appliedSelectedValues.length}
+              </span>
+                        )}
+                    </Button>
+                </PopoverTrigger>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="text-sm text-slate-500">
-          Showing {pagedRows.length} of {sortedData.length} filtered rows
+                <PopoverContent
+                    align="end"
+                    className="z-50 w-[320px] border bg-white p-0 shadow-md"
+                >
+                    <div className="border-b p-2">
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-slate-100"
+                            onClick={() => {
+                                column.toggleSorting(false);
+                                setOpen(false);
+                            }}
+                        >
+                            <ArrowUpAZ className="h-4 w-4" />
+                            Sort A to Z
+                        </button>
+
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-slate-100"
+                            onClick={() => {
+                                column.toggleSorting(true);
+                                setOpen(false);
+                            }}
+                        >
+                            <ArrowDownAZ className="h-4 w-4" />
+                            Sort Z to A
+                        </button>
+
+                        <button
+                            type="button"
+                            className="mt-1 flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={clearFilter}
+                            disabled={!hasActiveFilter}
+                        >
+                            <ListFilter className="h-4 w-4" />
+                            Clear Filter From "{String(title)}"
+                        </button>
+                    </div>
+
+                    <div className="border-b p-2">
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                            <Input
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Search"
+                                className="pl-8"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto p-2">
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-2 hover:bg-slate-100"
+                            onClick={() => handleSelectAllVisible(!allVisibleSelected)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    handleSelectAllVisible(!allVisibleSelected);
+                                }
+                            }}
+                        >
+                            <Checkbox
+                                checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                                onClick={(e) => e.stopPropagation()}
+                                onCheckedChange={(checked) => handleSelectAllVisible(checked === true)}
+                            />
+                            <span className="text-sm">(Select All)</span>
+                        </div>
+
+                        {filteredOptions.map((option) => {
+                            const checked = draftSelected.includes(option.value);
+
+                            return (
+                                <div
+                                    key={option.value}
+                                    role="button"
+                                    tabIndex={0}
+                                    className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-2 hover:bg-slate-100"
+                                    onClick={() => toggleValue(option.value, !checked)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            toggleValue(option.value, !checked);
+                                        }
+                                    }}
+                                >
+                                    <Checkbox
+                                        checked={checked}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onCheckedChange={(nextChecked) => toggleValue(option.value, nextChecked === true)}
+                                    />
+                                    <span className="text-sm">{option.label}</span>
+                                </div>
+                            );
+                        })}
+
+                        {filteredOptions.length === 0 && (
+                            <div className="px-2 py-3 text-sm text-slate-500">No matching values</div>
+                        )}
+                    </div>
+
+                    <div className="flex justify-end gap-2 border-t p-2">
+                        <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button size="sm" onClick={applyFilter}>
+                            OK
+                        </Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
         </div>
+    );
+}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={String(rowsPerPage)}
-            onValueChange={(value) => setRowsPerPage(Number(value))}
-          >
-            <SelectTrigger className="h-8 w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[10, 20, 50, 100].map((size) => (
-                <SelectItem key={size} value={String(size)}>
-                  {size}/page
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+export function ExcelStyleDataTable<TData, TValue = unknown>({
+                                                                 columns,
+                                                                 data,
+                                                                 pageSize = 10,
+                                                                 emptyMessage = "No results.",
+                                                             }: ExcelStyleDataTableProps<TData, TValue>) {
+    const [sorting, setSorting] = React.useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
-          <Button variant="outline" size="icon" onClick={() => setCurrentPage(0)} disabled={safePage === 0}>
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => setCurrentPage((p) => Math.max(0, p - 1))} disabled={safePage === 0}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+    const table = useReactTable({
+        data,
+        columns,
+        filterFns: {
+            excelLikeMultiValue: excelLikeMultiValueFilter,
+        },
+        state: {
+            sorting,
+            columnFilters,
+        },
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        initialState: {
+            pagination: {
+                pageIndex: 0,
+                pageSize,
+            },
+        },
+    });
 
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <span>Page {safePage + 1} of {pageCount}</span>
-            <span>|</span>
-            <span>Go to</span>
-            <input
-              type="number"
-              min={1}
-              max={pageCount}
-              value={pageInput}
-              onChange={(event) => setPageInput(event.target.value)}
-              onBlur={() => {
-                const value = Number(pageInput);
-                if (!Number.isFinite(value)) {
-                  setPageInput(String(safePage + 1));
-                  return;
-                }
-                setCurrentPage(Math.min(Math.max(1, Math.floor(value)), pageCount) - 1);
-              }}
-              className="h-8 w-16 rounded-md border border-slate-200 px-2"
-            />
-          </div>
+    const [pageInput, setPageInput] = React.useState("1");
 
-          <Button variant="outline" size="icon" onClick={() => setCurrentPage((p) => Math.min(pageCount - 1, p + 1))} disabled={safePage >= pageCount - 1}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => setCurrentPage(pageCount - 1)} disabled={safePage >= pageCount - 1}>
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
+    React.useEffect(() => {
+        setPageInput(String(table.getState().pagination.pageIndex + 1));
+    }, [table.getState().pagination.pageIndex]);
+
+    const pageCount = Math.max(table.getPageCount(), 1);
+
+    return (
+        <div className="space-y-4">
+            <div className="overflow-x-auto overflow-y-visible rounded-md border">
+                <Table>
+                    <TableHeader>
+                        {table.getHeaderGroups().map((headerGroup) => (
+                            <TableRow key={headerGroup.id}>
+                                {headerGroup.headers.map((header) => {
+                                    const meta = header.column.columnDef.meta;
+
+                                    return (
+                                        <TableHead key={header.id} className={meta?.headerClassName}>
+                                            {header.isPlaceholder ? null : (
+                                                <HeaderFilterMenu
+                                                    column={header.column}
+                                                    title={flexRender(header.column.columnDef.header, header.getContext())}
+                                                    data={data}
+                                                />
+                                            )}
+                                        </TableHead>
+                                    );
+                                })}
+                            </TableRow>
+                        ))}
+                    </TableHeader>
+
+                    <TableBody>
+                        {table.getRowModel().rows.length ? (
+                            table.getRowModel().rows.map((row) => (
+                                <TableRow key={row.id}>
+                                    {row.getVisibleCells().map((cell) => {
+                                        const meta = cell.column.columnDef.meta;
+                                        return (
+                                            <TableCell key={cell.id} className={meta?.className}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        );
+                                    })}
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={columns.length} className="h-24 text-center text-slate-500">
+                                    {emptyMessage}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="text-sm text-slate-500">
+                    Showing {table.getRowModel().rows.length} of {table.getFilteredRowModel().rows.length} filtered rows
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600">Rows per page</span>
+                        <Select
+                            value={String(table.getState().pagination.pageSize)}
+                            onValueChange={(value) => {
+                                table.setPageSize(Number(value));
+                                table.setPageIndex(0);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[90px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {[10, 20, 50, 100].map((size) => (
+                                    <SelectItem key={size} value={String(size)}>
+                                        {size}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.setPageIndex(0)}
+                            disabled={!table.getCanPreviousPage()}
+                        >
+                            <ChevronsLeft className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span>
+                Page {table.getState().pagination.pageIndex + 1} of {pageCount}
+              </span>
+                            <span>|</span>
+                            <span>Go to page</span>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={pageCount}
+                                value={pageInput}
+                                onChange={(e) => setPageInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        const value = Number(pageInput);
+                                        if (!Number.isNaN(value)) {
+                                            const page = Math.min(Math.max(value, 1), pageCount) - 1;
+                                            table.setPageIndex(page);
+                                        }
+                                    }
+                                }}
+                                onBlur={() => {
+                                    const value = Number(pageInput);
+                                    if (!Number.isNaN(value)) {
+                                        const page = Math.min(Math.max(value, 1), pageCount) - 1;
+                                        table.setPageIndex(page);
+                                    } else {
+                                        setPageInput(String(table.getState().pagination.pageIndex + 1));
+                                    }
+                                }}
+                                className="h-8 w-20"
+                            />
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => table.setPageIndex(pageCount - 1)}
+                            disabled={!table.getCanNextPage()}
+                        >
+                            <ChevronsRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default ExcelStyleDataTable;
