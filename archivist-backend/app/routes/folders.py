@@ -45,17 +45,17 @@ def _calc_expiry(code_obj: RetentionCode, start: date) -> date | None:
     return None
 
 
-def _folder_to_read(folder: Folder, db: Session) -> FolderRead:
+def _folder_to_read(folder: Folder, db: Session, code_str: str | None = None) -> FolderRead:
     """Build a FolderRead from a Folder, looking up the retention code string."""
-    code_str = ""
-    if folder.retention_code_id:
+    resolved_code = code_str if code_str is not None else ""
+    if resolved_code == "" and folder.retention_code_id:
         rc = db.get(RetentionCode, folder.retention_code_id)
         if rc:
-            code_str = rc.code
+            resolved_code = rc.code
     return FolderRead(
         id=folder.id,
         retention_id=folder.retention_id,
-        code=code_str,
+        code=resolved_code,
         name=folder.name,
         created_date=folder.created_date,
         start_date=folder.start_date,
@@ -78,7 +78,15 @@ def list_folders(
     if unassigned:
         query = query.filter(Folder.box_id.is_(None))
     folders = query.all()
-    return [_folder_to_read(f, db) for f in folders]
+    retention_ids = {folder.retention_code_id for folder in folders if folder.retention_code_id}
+    code_lookup = {}
+    if retention_ids:
+        code_lookup = dict(
+            db.query(RetentionCode.id, RetentionCode.code)
+            .filter(RetentionCode.id.in_(retention_ids))
+            .all()
+        )
+    return [_folder_to_read(f, db, code_lookup.get(f.retention_code_id, "")) for f in folders]
 
 
 @router.get("/{folder_id}", response_model=FolderRead)

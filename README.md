@@ -17,6 +17,7 @@ A modern records management system for tracking physical archives, boxes, and fo
 - **Archives**: Manage long-term archive destinations
 - **Import**: Bulk CSV import for boxes and folders
 - **Settings**: View system configuration and database info
+- **Large Dataset Support**: List endpoints return complete datasets while minimizing database round-trips (batched folder retention code lookups and grouped folder counts for box listings)
 
 ## Getting Started
 
