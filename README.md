@@ -17,6 +17,7 @@ A modern records management system for tracking physical archives, boxes, and fo
 - **Archives**: Manage long-term archive destinations
 - **Import**: Bulk CSV import for boxes and folders
 - **Settings**: View system configuration and database info
+- **Large Dataset Support**: List endpoints support `offset` / `limit` pagination (default `limit=100`, max `1000`)
 
 ## Getting Started
 

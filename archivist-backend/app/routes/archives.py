@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
@@ -13,8 +13,13 @@ router = APIRouter(prefix="/archives", tags=["archives"])
 
 
 @router.get("/", response_model=list[ArchiveRead])
-def list_archives(db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
-    return db.query(Archive).all()
+def list_archives(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    return db.query(Archive).offset(offset).limit(limit).all()
 
 
 @router.get("/{archive_id}", response_model=ArchiveRead)

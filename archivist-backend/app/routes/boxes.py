@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -70,9 +70,39 @@ def _create_box_with_retry(db: Session, body: BoxCreate, user_id: int, max_retri
 
 
 @router.get("/", response_model=list[BoxRead])
-def list_boxes(db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
-    boxes = db.query(Box).all()
-    return [_box_to_read(b, db) for b in boxes]
+def list_boxes(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    boxes = db.query(Box).offset(offset).limit(limit).all()
+    box_ids = [b.id for b in boxes]
+    folder_counts = {}
+    if box_ids:
+        folder_counts = dict(
+            db.query(Folder.box_id, func.count(Folder.id))
+            .filter(Folder.box_id.in_(box_ids))
+            .group_by(Folder.box_id)
+            .all()
+        )
+
+    return [
+        BoxRead(
+            id=box.id,
+            code=box.code,
+            name=box.name,
+            created_date=box.created_date,
+            expiry_date=box.expiry_date,
+            location_id=box.location_id,
+            archive_id=box.archive_id,
+            folder_count=folder_counts.get(box.id, 0),
+            created_by=box.created_by,
+            modified_by=box.modified_by,
+            modified_at=box.modified_at,
+        )
+        for box in boxes
+    ]
 
 
 @router.get("/{box_id}", response_model=BoxRead)
