@@ -6,6 +6,7 @@ from app.routes.archives import router as archives_router
 from app.routes.boxes import router as boxes_router
 from app.routes.folders import router as folders_router
 from app.routes.stats import router as stats_router
+from app.routes.imports import router as imports_router
 
 __all__ = [
     "auth_router",
@@ -16,4 +17,5 @@ __all__ = [
     "boxes_router",
     "folders_router",
     "stats_router",
+    "imports_router",
 ]
