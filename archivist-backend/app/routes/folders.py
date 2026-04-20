@@ -2,7 +2,7 @@ import re
 from datetime import date, datetime, timezone
 
 from dateutil.relativedelta import relativedelta
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -71,13 +71,15 @@ def _folder_to_read(folder: Folder, db: Session) -> FolderRead:
 @router.get("/", response_model=list[FolderRead])
 def list_folders(
     unassigned: bool = False,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
     query = db.query(Folder)
     if unassigned:
         query = query.filter(Folder.box_id.is_(None))
-    folders = query.all()
+    folders = query.offset(offset).limit(limit).all()
     return [_folder_to_read(f, db) for f in folders]
 
 
