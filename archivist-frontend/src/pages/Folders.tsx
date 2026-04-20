@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
-import { Plus, FolderOpen } from "lucide-react";
+import { Plus, Trash2, FolderOpen } from "lucide-react";
 
 export function Folders() {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -53,6 +53,11 @@ export function Folders() {
     }
   };
 
+  const handleDelete = async (id: number) => {
+    await api.deleteFolder(id);
+    load();
+  };
+
   const handleAssign = async () => {
     if (selectedFolder && selectedBox) {
       await api.assignFolder(selectedFolder.id, parseInt(selectedBox));
@@ -72,6 +77,15 @@ export function Folders() {
     if (!expiry) return false;
     return new Date(expiry) < new Date();
   };
+
+  const boxOptions = useMemo(
+      () =>
+          boxes.map((b) => ({
+            label: `${b.code} – ${b.name || "Unnamed"}`,
+            value: String(b.id),
+          })),
+      [boxes]
+  );
 
   const columns = useMemo<ExcelColumnDef<Folder>[]>(() => [
     {
@@ -108,8 +122,8 @@ export function Folders() {
       enableColumnFilter: true,
       filterFn: "excelLikeMultiValue",
       sortingFn: (a, b, id) => {
-        const aTime = a[id] ? new Date(String(a[id])).getTime() : 0;
-        const bTime = b[id] ? new Date(String(b[id])).getTime() : 0;
+        const aTime = a.getValue<string | null>(id) ? new Date(a.getValue<string>(id)).getTime() : 0;
+        const bTime = b.getValue<string | null>(id) ? new Date(b.getValue<string>(id)).getTime() : 0;
         return aTime - bTime;
       },
     },
@@ -133,10 +147,10 @@ export function Folders() {
         getOptionLabel: (folder) => folder.expiry_date || "Permanent",
       },
       sortingFn: (a, b, id) => {
-        const aVal = a[id];
-        const bVal = b[id];
-        const aTime = aVal ? new Date(String(aVal)).getTime() : Number.MAX_SAFE_INTEGER;
-        const bTime = bVal ? new Date(String(bVal)).getTime() : Number.MAX_SAFE_INTEGER;
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = bVal ? new Date(bVal).getTime() : Number.MAX_SAFE_INTEGER;
         return aTime - bTime;
       },
     },
@@ -220,14 +234,14 @@ export function Folders() {
         },
       },
       sortingFn: (a, b, id) => {
-        const aVal = a[id];
-        const bVal = b[id];
-        const aTime = aVal ? new Date(String(aVal)).getTime() : 0;
-        const bTime = bVal ? new Date(String(bVal)).getTime() : 0;
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
         return aTime - bTime;
       },
     },
-  ], [boxes]);
+  ], [boxes, boxOptions]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
