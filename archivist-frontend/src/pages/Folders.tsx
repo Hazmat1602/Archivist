@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Folder, type RetentionCode, type Box } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,14 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, FolderOpen } from "lucide-react";
 
 export function Folders() {
@@ -85,6 +78,171 @@ export function Folders() {
     return new Date(expiry) < new Date();
   };
 
+  const boxOptions = useMemo(
+      () =>
+          boxes.map((b) => ({
+            label: `${b.code} – ${b.name || "Unnamed"}`,
+            value: String(b.id),
+          })),
+      [boxes]
+  );
+
+  const columns = useMemo<ExcelColumnDef<Folder>[]>(() => [
+    {
+      accessorKey: "retention_id",
+      header: "Retention ID",
+      cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.retention_id}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (folder) =>
+            folder.retention_id == null ? "" : String(folder.retention_id),
+        getOptionLabel: (folder) =>
+            folder.retention_id == null ? "(Blank)" : String(folder.retention_id),
+      },
+    },
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+          <Badge variant="secondary">{row.original.code}</Badge>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "start_date",
+      header: "Start Date",
+      cell: ({ row }) => row.original.start_date || "—",
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      sortingFn: (a, b, id) => {
+        const aTime = a.getValue<string | null>(id) ? new Date(a.getValue<string>(id)).getTime() : 0;
+        const bTime = b.getValue<string | null>(id) ? new Date(b.getValue<string>(id)).getTime() : 0;
+        return aTime - bTime;
+      },
+    },
+    {
+      accessorKey: "expiry_date",
+      header: "Expiry",
+      cell: ({ row }) => {
+        const expiry = row.original.expiry_date;
+        return expiry ? (
+            <Badge variant={isExpired(expiry) ? "destructive" : "outline"}>
+              {expiry}
+            </Badge>
+        ) : (
+            <Badge variant="success">Permanent</Badge>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getOptionLabel: (folder) => folder.expiry_date || "Permanent",
+      },
+      sortingFn: (a, b, id) => {
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = bVal ? new Date(bVal).getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      },
+    },
+    {
+      accessorKey: "box_id",
+      header: "Box",
+      cell: ({ row }) => {
+        const f = row.original;
+
+        return f.box_id ? (
+            <div className="flex items-center gap-1">
+              <Badge variant="default">
+                {boxes.find((b) => b.id === f.box_id)?.code || `Box #${f.box_id}`}
+              </Badge>
+              <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleUnassign(f.id)}
+                  className="h-6 px-1 text-xs"
+              >
+                ×
+              </Button>
+            </div>
+        ) : (
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedFolder(f);
+                  setAssignOpen(true);
+                }}
+                className="h-7 text-xs"
+            >
+              Assign
+            </Button>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getOptionLabel: (folder) => {
+          if (!folder.box_id) return "Unassigned";
+          const box = boxes.find((b) => b.id === folder.box_id);
+          return box?.code || `Box #${folder.box_id}`;
+        },
+      },
+    },
+    {
+      accessorKey: "modified_at",
+      header: "Modified",
+      cell: ({ row }) => {
+        const f = row.original;
+        return (
+            <span className="text-xs text-slate-400">
+        {f.modified_by != null ? (
+            <span title={f.modified_at ? new Date(f.modified_at).toLocaleString() : undefined}>
+            User #{f.modified_by}
+          </span>
+        ) : f.created_by != null ? (
+            <span>Created by #{f.created_by}</span>
+        ) : (
+            "—"
+        )}
+      </span>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (folder) => {
+          if (folder.modified_by != null) return `modified:${folder.modified_by}`;
+          if (folder.created_by != null) return `created:${folder.created_by}`;
+          return "none";
+        },
+        getOptionLabel: (folder) => {
+          if (folder.modified_by != null) return `User #${folder.modified_by}`;
+          if (folder.created_by != null) return `Created by #${folder.created_by}`;
+          return "—";
+        },
+      },
+      sortingFn: (a, b, id) => {
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return aTime - bTime;
+      },
+    },
+  ], [boxes, boxOptions]);
+
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
   return (
@@ -107,76 +265,16 @@ export function Folders() {
         </CardHeader>
         <CardContent>
           {folders.length === 0 ? (
-            <p className="py-8 text-center text-slate-400">No folders yet. Create one to get started.</p>
+              <p className="py-8 text-center text-slate-400">
+                No folders yet. Create one to get started.
+              </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Retention ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>Expiry</TableHead>
-                  <TableHead>Box</TableHead>
-                  <TableHead>Modified</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {folders.map((f) => (
-                  <TableRow key={f.id}>
-                    <TableCell className="font-mono text-xs">{f.retention_id}</TableCell>
-                    <TableCell className="font-medium">{f.name}</TableCell>
-                    <TableCell><Badge variant="secondary">{f.code}</Badge></TableCell>
-                    <TableCell>{f.start_date}</TableCell>
-                    <TableCell>
-                      {f.expiry_date ? (
-                        <Badge variant={isExpired(f.expiry_date) ? "destructive" : "outline"}>
-                          {f.expiry_date}
-                        </Badge>
-                      ) : (
-                        <Badge variant="success">Permanent</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {f.box_id ? (
-                        <div className="flex items-center gap-1">
-                          <Badge variant="default">
-                            {boxes.find((b) => b.id === f.box_id)?.code || `Box #${f.box_id}`}
-                          </Badge>
-                          <Button variant="ghost" size="sm" onClick={() => handleUnassign(f.id)} className="h-6 px-1 text-xs">
-                            ×
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => { setSelectedFolder(f); setAssignOpen(true); }}
-                          className="h-7 text-xs"
-                        >
-                          Assign
-                        </Button>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {f.modified_by != null ? (
-                        <span title={f.modified_at ? new Date(f.modified_at).toLocaleString() : undefined}>
-                          User #{f.modified_by}
-                        </span>
-                      ) : f.created_by != null ? (
-                        <span>Created by #{f.created_by}</span>
-                      ) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(f.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+              <ExcelStyleDataTable
+                  columns={columns}
+                  data={folders}
+                  pageSize={10}
+                  emptyMessage="No folders found."
+              />
           )}
         </CardContent>
       </Card>

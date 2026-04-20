@@ -19,7 +19,7 @@ def list_locations(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    return db.query(Location).offset(offset).limit(limit).all()
+    return db.query(Location).order_by(Location.id).offset(offset).limit(limit).all()
 
 
 @router.get("/{location_id}", response_model=LocationRead)

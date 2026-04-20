@@ -19,7 +19,7 @@ def list_codes(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    return db.query(RetentionCode).offset(offset).limit(limit).all()
+    return db.query(RetentionCode).order_by(RetentionCode.id).offset(offset).limit(limit).all()
 
 
 @router.get("/{code_id}", response_model=RetentionCodeRead)

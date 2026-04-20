@@ -140,10 +140,10 @@ export function Imports() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {renderImportCard("codes", "Import Retention Codes", "Columns: Category, Sub-Category, Code, Name, Description, Retention Description, Retention Period/Retention Date")}
-        {renderImportCard("locations", "Import Locations", "Columns: Code, Description, On Site")}
         {renderImportCard("folders", "Import Folders", "Columns: Code, Name, Start Date")}
         {renderImportCard("boxes", "Import Boxes", "Columns: Name, optional Retention IDs")}
+        {renderImportCard("codes", "Import Retention Codes", "Columns: Category, Sub-Category, Code, Name, Description, Retention Description, Retention Period/Retention Date")}
+        {renderImportCard("locations", "Import Locations", "Columns: Code, Description, On Site")}
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ def list_categories(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    return db.query(Category).offset(offset).limit(limit).all()
+    return db.query(Category).order_by(Category.id).offset(offset).limit(limit).all()
 
 
 @router.get("/{category_id}", response_model=CategoryRead)

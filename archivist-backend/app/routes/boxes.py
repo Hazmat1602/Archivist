@@ -76,7 +76,7 @@ def list_boxes(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    boxes = db.query(Box).offset(offset).limit(limit).all()
+    boxes = db.query(Box).order_by(Box.id).offset(offset).limit(limit).all()
     box_ids = [b.id for b in boxes]
     folder_counts = {}
     if box_ids:
