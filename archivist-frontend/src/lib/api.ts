@@ -114,11 +114,17 @@ export interface DashboardStats {
   expired: number;
 }
 
+export interface UserSummary {
+  id: number;
+  username: string;
+}
+
 // --- API functions ---
 
 export const api = {
   // Stats
   getStats: () => request<DashboardStats>("/api/stats/"),
+  listUsers: () => request<UserSummary[]>("/api/users/"),
 
   // Categories
   listCategories: () => request<Category[]>("/api/categories/"),

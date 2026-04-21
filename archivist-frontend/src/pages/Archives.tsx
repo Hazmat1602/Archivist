@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { api, type Archive } from "@/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { api, type Archive, type UserSummary } from "@/lib/api";
+import { formatModifiedLabel } from "@/lib/audit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,14 +16,25 @@ import { Plus, Trash2, Archive as ArchiveIcon, Pencil } from "lucide-react";
 
 export function Archives() {
   const [archives, setArchives] = useState<Archive[]>([]);
+  const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editArc, setEditArc] = useState<Archive | null>(null);
   const [form, setForm] = useState({ code: "", name: "", address: "" });
 
   const load = () => {
-    api.listArchives().then(setArchives).finally(() => setLoading(false));
+    Promise.all([api.listArchives(), api.listUsers()])
+      .then(([archiveData, userData]) => {
+        setArchives(archiveData);
+        setUsers(userData);
+      })
+      .finally(() => setLoading(false));
   };
+
+  const userLookup = useMemo(
+    () => Object.fromEntries(users.map((user) => [user.id, user.username])),
+    [users],
+  );
 
   useEffect(() => { load(); }, []);
 
@@ -90,13 +102,9 @@ export function Archives() {
                     <TableCell className="font-medium">{a.name}</TableCell>
                     <TableCell className="text-sm text-slate-500">{a.address || "—"}</TableCell>
                     <TableCell className="text-xs text-slate-400">
-                      {a.modified_by != null ? (
-                        <span title={a.modified_at ? new Date(a.modified_at).toLocaleString() : undefined}>
-                          User #{a.modified_by}
-                        </span>
-                      ) : a.created_by != null ? (
-                        <span>Created by #{a.created_by}</span>
-                      ) : "\u2014"}
+                      <span title={a.modified_at ? new Date(a.modified_at).toLocaleString() : undefined}>
+                        {formatModifiedLabel(a, userLookup)}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(a)}>
