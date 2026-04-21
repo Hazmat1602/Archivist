@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { api, type RetentionCode, type Category, type UserSummary } from "@/lib/api";
-import { formatModifiedLabel } from "@/lib/audit";
+import { useEffect, useState } from "react";
+import { api, type RetentionCode, type Category } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +19,6 @@ import { Plus, Trash2, FileCode2, Pencil } from "lucide-react";
 export function Codes() {
   const [codes, setCodes] = useState<RetentionCode[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [catDialogOpen, setCatDialogOpen] = useState(false);
@@ -32,15 +30,10 @@ export function Codes() {
   const [catForm, setCatForm] = useState({ name: "", parent_id: "" });
 
   const load = () => {
-    Promise.all([api.listCodes(), api.listCategories(), api.listUsers()])
-      .then(([c, cat, u]) => { setCodes(c); setCategories(cat); setUsers(u); })
+    Promise.all([api.listCodes(), api.listCategories()])
+      .then(([c, cat]) => { setCodes(c); setCategories(cat); })
       .finally(() => setLoading(false));
   };
-
-  const userLookup = useMemo(
-    () => Object.fromEntries(users.map((user) => [user.id, user.username])),
-    [users],
-  );
 
   useEffect(() => { load(); }, []);
 
@@ -157,9 +150,13 @@ export function Codes() {
                     <TableCell className="max-w-xs truncate text-sm text-slate-500">{c.code_description}</TableCell>
                     <TableCell><Badge variant="outline">{c.period_description}</Badge></TableCell>
                     <TableCell className="text-xs text-slate-400">
-                      <span title={c.modified_at ? new Date(c.modified_at).toLocaleString() : undefined}>
-                        {formatModifiedLabel(c, userLookup)}
-                      </span>
+                      {c.modified_by != null ? (
+                        <span title={c.modified_at ? new Date(c.modified_at).toLocaleString() : undefined}>
+                          User #{c.modified_by}
+                        </span>
+                      ) : c.created_by != null ? (
+                        <span>Created by #{c.created_by}</span>
+                      ) : "\u2014"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>

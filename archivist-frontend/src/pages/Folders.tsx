@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type Folder, type RetentionCode, type Box, type UserSummary } from "@/lib/api";
-import { formatModifiedLabel } from "@/lib/audit";
+import { api, type Folder, type RetentionCode, type Box } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +27,6 @@ export function Folders() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [codes, setCodes] = useState<RetentionCode[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -37,15 +35,10 @@ export function Folders() {
   const [selectedBox, setSelectedBox] = useState("");
 
   const load = () => {
-    Promise.all([api.listFolders(), api.listCodes(), api.listBoxes(), api.listUsers()])
-      .then(([f, c, b, u]) => { setFolders(f); setCodes(c); setBoxes(b); setUsers(u); })
+    Promise.all([api.listFolders(), api.listCodes(), api.listBoxes()])
+      .then(([f, c, b]) => { setFolders(f); setCodes(c); setBoxes(b); })
       .finally(() => setLoading(false));
   };
-
-  const userLookup = useMemo(
-    () => Object.fromEntries(users.map((user) => [user.id, user.username])),
-    [users],
-  );
 
   useEffect(() => { load(); }, []);
 
@@ -213,9 +206,15 @@ export function Folders() {
         const f = row.original;
         return (
             <span className="text-xs text-slate-400">
-        <span title={f.modified_at ? new Date(f.modified_at).toLocaleString() : undefined}>
-          {formatModifiedLabel(f, userLookup)}
-        </span>
+        {f.modified_by != null ? (
+            <span title={f.modified_at ? new Date(f.modified_at).toLocaleString() : undefined}>
+            User #{f.modified_by}
+          </span>
+        ) : f.created_by != null ? (
+            <span>Created by #{f.created_by}</span>
+        ) : (
+            "—"
+        )}
       </span>
         );
       },
@@ -229,8 +228,8 @@ export function Folders() {
           return "none";
         },
         getOptionLabel: (folder) => {
-          if (folder.modified_by != null) return userLookup[folder.modified_by] || `User #${folder.modified_by}`;
-          if (folder.created_by != null) return `Created by ${userLookup[folder.created_by] || `#${folder.created_by}`}`;
+          if (folder.modified_by != null) return `User #${folder.modified_by}`;
+          if (folder.created_by != null) return `Created by #${folder.created_by}`;
           return "—";
         },
       },
@@ -242,7 +241,7 @@ export function Folders() {
         return aTime - bTime;
       },
     },
-  ], [boxes, boxOptions, userLookup]);
+  ], [boxes, boxOptions]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
