@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Box, type Location } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, Package, Pencil } from "lucide-react";
 
 export function Boxes() {
@@ -63,6 +61,159 @@ export function Boxes() {
     setForm({ name: box.name || "", location_id: box.location_id ? String(box.location_id) : "" });
   };
 
+  const columns = useMemo<ExcelColumnDef<Box>[]>(() => [
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">{row.original.code}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name || "\u2014"}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (box) => box.name || "",
+        getOptionLabel: (box) => box.name || "(Blank)",
+      },
+    },
+    {
+      accessorKey: "created_date",
+      header: "Created",
+      cell: ({ row }) => row.original.created_date,
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      sortingFn: (a, b, id) => {
+        const aTime = a.getValue<string | null>(id) ? new Date(a.getValue<string>(id)).getTime() : 0;
+        const bTime = b.getValue<string | null>(id) ? new Date(b.getValue<string>(id)).getTime() : 0;
+        return aTime - bTime;
+      },
+    },
+    {
+      accessorKey: "expiry_date",
+      header: "Expiry",
+      cell: ({ row }) => {
+        const expiry = row.original.expiry_date;
+        return expiry ? (
+          <Badge variant="outline">{expiry}</Badge>
+        ) : "\u2014";
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getOptionLabel: (box) => box.expiry_date || "(None)",
+      },
+      sortingFn: (a, b, id) => {
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : Number.MAX_SAFE_INTEGER;
+        const bTime = bVal ? new Date(bVal).getTime() : Number.MAX_SAFE_INTEGER;
+        return aTime - bTime;
+      },
+    },
+    {
+      accessorKey: "location_id",
+      header: "Location",
+      cell: ({ row }) => {
+        const b = row.original;
+        return b.location_id
+          ? locations.find((l) => l.id === b.location_id)?.code || `#${b.location_id}`
+          : <span className="text-slate-400">None</span>;
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (box) => box.location_id != null ? String(box.location_id) : "",
+        getOptionLabel: (box) => {
+          if (!box.location_id) return "None";
+          const loc = locations.find((l) => l.id === box.location_id);
+          return loc?.code || `#${box.location_id}`;
+        },
+      },
+    },
+    {
+      accessorKey: "folder_count",
+      header: "Folders",
+      cell: ({ row }) => (
+        <Badge variant="secondary">{row.original.folder_count}</Badge>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "modified_at",
+      header: "Modified",
+      cell: ({ row }) => {
+        const b = row.original;
+        return (
+          <span className="text-xs text-slate-400">
+            {b.modified_by != null ? (
+              <span title={b.modified_at ? new Date(b.modified_at).toLocaleString() : undefined}>
+                User #{b.modified_by}
+              </span>
+            ) : b.created_by != null ? (
+              <span>Created by #{b.created_by}</span>
+            ) : (
+              "\u2014"
+            )}
+          </span>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (box) => {
+          if (box.modified_by != null) return `modified:${box.modified_by}`;
+          if (box.created_by != null) return `created:${box.created_by}`;
+          return "none";
+        },
+        getOptionLabel: (box) => {
+          if (box.modified_by != null) return `User #${box.modified_by}`;
+          if (box.created_by != null) return `Created by #${box.created_by}`;
+          return "\u2014";
+        },
+      },
+      sortingFn: (a, b, id) => {
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return aTime - bTime;
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)}>
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+      enableSorting: false,
+      enableColumnFilter: false,
+      meta: { filterVariant: "none" as const, headerClassName: "text-right" },
+    },
+  ], [locations]);
+
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
   return (
@@ -84,61 +235,12 @@ export function Boxes() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {boxes.length === 0 ? (
-            <p className="py-8 text-center text-slate-400">No boxes yet. Create one to get started.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Expiry</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Folders</TableHead>
-                  <TableHead>Modified</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {boxes.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-mono text-xs">{b.code}</TableCell>
-                    <TableCell className="font-medium">{b.name || "—"}</TableCell>
-                    <TableCell>{b.created_date}</TableCell>
-                    <TableCell>
-                      {b.expiry_date ? (
-                        <Badge variant="outline">{b.expiry_date}</Badge>
-                      ) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {b.location_id
-                        ? locations.find((l) => l.id === b.location_id)?.code || `#${b.location_id}`
-                        : <span className="text-slate-400">None</span>}
-                    </TableCell>
-                    <TableCell><Badge variant="secondary">{b.folder_count}</Badge></TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {b.modified_by != null ? (
-                        <span title={b.modified_at ? new Date(b.modified_at).toLocaleString() : undefined}>
-                          User #{b.modified_by}
-                        </span>
-                      ) : b.created_by != null ? (
-                        <span>Created by #{b.created_by}</span>
-                      ) : "\u2014"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(b)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <ExcelStyleDataTable
+            columns={columns}
+            data={boxes}
+            pageSize={10}
+            emptyMessage="No boxes yet. Create one to get started."
+          />
         </CardContent>
       </Card>
 
@@ -160,7 +262,7 @@ export function Boxes() {
                 <SelectTrigger><SelectValue placeholder="Select location (optional)" /></SelectTrigger>
                 <SelectContent>
                   {locations.map((l) => (
-                    <SelectItem key={l.id} value={String(l.id)}>{l.code} – {l.description}</SelectItem>
+                    <SelectItem key={l.id} value={String(l.id)}>{l.code} \u2013 {l.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -191,7 +293,7 @@ export function Boxes() {
                 <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
                 <SelectContent>
                   {locations.map((l) => (
-                    <SelectItem key={l.id} value={String(l.id)}>{l.code} – {l.description}</SelectItem>
+                    <SelectItem key={l.id} value={String(l.id)}>{l.code} \u2013 {l.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

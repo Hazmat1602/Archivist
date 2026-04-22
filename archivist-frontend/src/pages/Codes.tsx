@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type RetentionCode, type Category } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, FileCode2, Pencil } from "lucide-react";
 
 export function Codes() {
@@ -100,6 +98,124 @@ export function Codes() {
     });
   };
 
+  const columns = useMemo<ExcelColumnDef<RetentionCode>[]>(() => [
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="font-mono">{row.original.code}</Badge>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "category_id",
+      header: "Category",
+      cell: ({ row }) => categories.find((cat) => cat.id === row.original.category_id)?.name || "\u2014",
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (code) => String(code.category_id),
+        getOptionLabel: (code) => {
+          const cat = categories.find((c) => c.id === code.category_id);
+          return cat?.name || "\u2014";
+        },
+      },
+    },
+    {
+      accessorKey: "code_description",
+      header: "Description",
+      cell: ({ row }) => (
+        <span className="max-w-xs truncate text-sm text-slate-500">{row.original.code_description}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: { className: "max-w-xs" },
+    },
+    {
+      accessorKey: "period_description",
+      header: "Period",
+      cell: ({ row }) => (
+        <Badge variant="outline">{row.original.period_description}</Badge>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "modified_at",
+      header: "Modified",
+      cell: ({ row }) => {
+        const c = row.original;
+        return (
+          <span className="text-xs text-slate-400">
+            {c.modified_by != null ? (
+              <span title={c.modified_at ? new Date(c.modified_at).toLocaleString() : undefined}>
+                User #{c.modified_by}
+              </span>
+            ) : c.created_by != null ? (
+              <span>Created by #{c.created_by}</span>
+            ) : (
+              "\u2014"
+            )}
+          </span>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (code) => {
+          if (code.modified_by != null) return `modified:${code.modified_by}`;
+          if (code.created_by != null) return `created:${code.created_by}`;
+          return "none";
+        },
+        getOptionLabel: (code) => {
+          if (code.modified_by != null) return `User #${code.modified_by}`;
+          if (code.created_by != null) return `Created by #${code.created_by}`;
+          return "\u2014";
+        },
+      },
+      sortingFn: (a, b, id) => {
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return aTime - bTime;
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)}>
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+      enableSorting: false,
+      enableColumnFilter: false,
+      meta: { filterVariant: "none" as const, headerClassName: "text-right" },
+    },
+  ], [categories]);
+
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
   return (
@@ -126,51 +242,12 @@ export function Codes() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {codes.length === 0 ? (
-            <p className="py-8 text-center text-slate-400">No retention codes yet. Create a category first, then add codes.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Modified</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {codes.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell><Badge variant="secondary" className="font-mono">{c.code}</Badge></TableCell>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>{categories.find((cat) => cat.id === c.category_id)?.name || "—"}</TableCell>
-                    <TableCell className="max-w-xs truncate text-sm text-slate-500">{c.code_description}</TableCell>
-                    <TableCell><Badge variant="outline">{c.period_description}</Badge></TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {c.modified_by != null ? (
-                        <span title={c.modified_at ? new Date(c.modified_at).toLocaleString() : undefined}>
-                          User #{c.modified_by}
-                        </span>
-                      ) : c.created_by != null ? (
-                        <span>Created by #{c.created_by}</span>
-                      ) : "\u2014"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <ExcelStyleDataTable
+            columns={columns}
+            data={codes}
+            pageSize={10}
+            emptyMessage="No retention codes yet. Create a category first, then add codes."
+          />
         </CardContent>
       </Card>
 

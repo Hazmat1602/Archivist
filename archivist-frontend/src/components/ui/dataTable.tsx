@@ -11,6 +11,24 @@ import {
     type FilterFn,
     type SortingState,
 } from "@tanstack/react-table";
+
+type FilterOption = { label: string; value: string };
+
+declare module "@tanstack/react-table" {
+  interface FilterFns {
+    excelLikeMultiValue: FilterFn<unknown>;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint, @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends unknown, TValue = unknown> {
+    className?: string;
+    headerClassName?: string;
+    filterVariant?: FilterVariant;
+    filterPlaceholder?: string;
+    filterOptions?: FilterOption[];
+    getOptionLabel?: (row: TData) => string;
+    getFilterValue?: (row: TData) => string;
+  }
+}
 import {
     ArrowDownAZ,
     ArrowUpAZ,
@@ -171,15 +189,15 @@ function HeaderFilterMenu<TData>({
     const filteredOptions = React.useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return options;
-        return options.filter((option) => option.label.toLowerCase().includes(q));
+        return options.filter((option: FilterOption) => option.label.toLowerCase().includes(q));
     }, [options, search]);
 
     const allVisibleSelected =
         filteredOptions.length > 0 &&
-        filteredOptions.every((option) => draftSelected.includes(option.value));
+        filteredOptions.every((option: FilterOption) => draftSelected.includes(option.value));
 
     const someVisibleSelected =
-        filteredOptions.some((option) => draftSelected.includes(option.value)) && !allVisibleSelected;
+        filteredOptions.some((option: FilterOption) => draftSelected.includes(option.value)) && !allVisibleSelected;
 
     const hasActiveFilter = appliedSelectedValues.length > 0;
 
@@ -192,12 +210,12 @@ function HeaderFilterMenu<TData>({
     const handleSelectAllVisible = (checked: boolean) => {
         if (checked) {
             setDraftSelected((prev) => {
-                const merged = new Set([...prev, ...filteredOptions.map((o) => o.value)]);
+                const merged = new Set([...prev, ...filteredOptions.map((o: FilterOption) => o.value)]);
                 return Array.from(merged);
             });
         } else {
             setDraftSelected((prev) =>
-                prev.filter((value) => !filteredOptions.some((o) => o.value === value))
+                prev.filter((value) => !filteredOptions.some((o: FilterOption) => o.value === value))
             );
         }
     };
@@ -326,7 +344,7 @@ function HeaderFilterMenu<TData>({
                             <span className="text-sm">(Select All)</span>
                         </div>
 
-                        {filteredOptions.map((option) => {
+                        {filteredOptions.map((option: FilterOption) => {
                             const checked = draftSelected.includes(option.value);
 
                             return (

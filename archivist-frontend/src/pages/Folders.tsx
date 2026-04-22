@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
-import { Plus, Trash2, FolderOpen } from "lucide-react";
+import { Plus, FolderOpen } from "lucide-react";
 
 export function Folders() {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -51,11 +51,6 @@ export function Folders() {
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to create folder");
     }
-  };
-
-  const handleDelete = async (id: number) => {
-    await api.deleteFolder(id);
-    load();
   };
 
   const handleAssign = async () => {
