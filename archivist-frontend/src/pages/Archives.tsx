@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Archive } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, Archive as ArchiveIcon, Pencil } from "lucide-react";
 
 export function Archives() {
@@ -51,6 +49,102 @@ export function Archives() {
     setForm({ code: arc.code, name: arc.name, address: arc.address || "" });
   };
 
+  const columns = useMemo<ExcelColumnDef<Archive>[]>(() => [
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="font-mono">{row.original.code}</Badge>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "address",
+      header: "Address",
+      cell: ({ row }) => (
+        <span className="text-sm text-slate-500">{row.original.address || "\u2014"}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (arc) => arc.address || "",
+        getOptionLabel: (arc) => arc.address || "(Blank)",
+      },
+    },
+    {
+      accessorKey: "modified_at",
+      header: "Modified",
+      cell: ({ row }) => {
+        const a = row.original;
+        return (
+          <span className="text-xs text-slate-400">
+            {a.modified_by != null ? (
+              <span title={a.modified_at ? new Date(a.modified_at).toLocaleString() : undefined}>
+                User #{a.modified_by}
+              </span>
+            ) : a.created_by != null ? (
+              <span>Created by #{a.created_by}</span>
+            ) : (
+              "\u2014"
+            )}
+          </span>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (arc) => {
+          if (arc.modified_by != null) return `modified:${arc.modified_by}`;
+          if (arc.created_by != null) return `created:${arc.created_by}`;
+          return "none";
+        },
+        getOptionLabel: (arc) => {
+          if (arc.modified_by != null) return `User #${arc.modified_by}`;
+          if (arc.created_by != null) return `Created by #${arc.created_by}`;
+          return "\u2014";
+        },
+      },
+      sortingFn: (a, b, id) => {
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return aTime - bTime;
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)}>
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+      enableSorting: false,
+      enableColumnFilter: false,
+      meta: { filterVariant: "none" as const, headerClassName: "text-right" },
+    },
+  ], []);
+
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
   return (
@@ -70,47 +164,12 @@ export function Archives() {
           <CardTitle className="flex items-center gap-2"><ArchiveIcon className="h-5 w-5" /> All Archives</CardTitle>
         </CardHeader>
         <CardContent>
-          {archives.length === 0 ? (
-            <p className="py-8 text-center text-slate-400">No archives yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Modified</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {archives.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell><Badge variant="secondary" className="font-mono">{a.code}</Badge></TableCell>
-                    <TableCell className="font-medium">{a.name}</TableCell>
-                    <TableCell className="text-sm text-slate-500">{a.address || "—"}</TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {a.modified_by != null ? (
-                        <span title={a.modified_at ? new Date(a.modified_at).toLocaleString() : undefined}>
-                          User #{a.modified_by}
-                        </span>
-                      ) : a.created_by != null ? (
-                        <span>Created by #{a.created_by}</span>
-                      ) : "\u2014"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(a)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <ExcelStyleDataTable
+            columns={columns}
+            data={archives}
+            pageSize={10}
+            emptyMessage="No archives yet."
+          />
         </CardContent>
       </Card>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, type Location } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 
 export function Locations() {
@@ -51,6 +49,104 @@ export function Locations() {
     setForm({ code: loc.code, description: loc.description, local_storage: loc.local_storage });
   };
 
+  const columns = useMemo<ExcelColumnDef<Location>[]>(() => [
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="font-mono">{row.original.code}</Badge>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "description",
+      header: "Description",
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.description}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+    },
+    {
+      accessorKey: "local_storage",
+      header: "Type",
+      cell: ({ row }) => (
+        <Badge variant={row.original.local_storage ? "success" : "warning"}>
+          {row.original.local_storage ? "On-site" : "Off-site"}
+        </Badge>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (loc) => String(loc.local_storage),
+        getOptionLabel: (loc) => loc.local_storage ? "On-site" : "Off-site",
+      },
+    },
+    {
+      accessorKey: "modified_at",
+      header: "Modified",
+      cell: ({ row }) => {
+        const l = row.original;
+        return (
+          <span className="text-xs text-slate-400">
+            {l.modified_by != null ? (
+              <span title={l.modified_at ? new Date(l.modified_at).toLocaleString() : undefined}>
+                User #{l.modified_by}
+              </span>
+            ) : l.created_by != null ? (
+              <span>Created by #{l.created_by}</span>
+            ) : (
+              "\u2014"
+            )}
+          </span>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue",
+      meta: {
+        getFilterValue: (loc) => {
+          if (loc.modified_by != null) return `modified:${loc.modified_by}`;
+          if (loc.created_by != null) return `created:${loc.created_by}`;
+          return "none";
+        },
+        getOptionLabel: (loc) => {
+          if (loc.modified_by != null) return `User #${loc.modified_by}`;
+          if (loc.created_by != null) return `Created by #${loc.created_by}`;
+          return "\u2014";
+        },
+      },
+      sortingFn: (a, b, id) => {
+        const aVal = a.getValue<string | null>(id);
+        const bVal = b.getValue<string | null>(id);
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return aTime - bTime;
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)}>
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ),
+      enableSorting: false,
+      enableColumnFilter: false,
+      meta: { filterVariant: "none" as const, headerClassName: "text-right" },
+    },
+  ], []);
+
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
   return (
@@ -70,51 +166,12 @@ export function Locations() {
           <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> All Locations</CardTitle>
         </CardHeader>
         <CardContent>
-          {locations.length === 0 ? (
-            <p className="py-8 text-center text-slate-400">No locations yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Modified</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {locations.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell><Badge variant="secondary" className="font-mono">{l.code}</Badge></TableCell>
-                    <TableCell className="font-medium">{l.description}</TableCell>
-                    <TableCell>
-                      <Badge variant={l.local_storage ? "success" : "warning"}>
-                        {l.local_storage ? "On-site" : "Off-site"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {l.modified_by != null ? (
-                        <span title={l.modified_at ? new Date(l.modified_at).toLocaleString() : undefined}>
-                          User #{l.modified_by}
-                        </span>
-                      ) : l.created_by != null ? (
-                        <span>Created by #{l.created_by}</span>
-                      ) : "\u2014"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(l)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(l.id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <ExcelStyleDataTable
+            columns={columns}
+            data={locations}
+            pageSize={10}
+            emptyMessage="No locations yet."
+          />
         </CardContent>
       </Card>
 
