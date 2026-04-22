@@ -93,7 +93,7 @@ type ExcelStyleDataTableProps<TData, TValue = unknown> = {
     emptyMessage?: string;
 };
 
-const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue) => {
+const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue, _addMeta) => {
     if (
         !filterValue ||
         !Array.isArray(filterValue.selectedValues) ||
@@ -102,8 +102,16 @@ const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue) =>
         return true;
     }
 
-    const raw = row.getValue(columnId);
-    const rowValue = raw == null ? "" : String(raw);
+    const meta = row.getAllCells().find((c: any) => c.column.id === columnId)?.column.columnDef.meta;
+    const getFilterValue = meta?.getFilterValue;
+
+    let rowValue: string;
+    if (typeof getFilterValue === "function") {
+        rowValue = getFilterValue(row.original) ?? "";
+    } else {
+        const raw = row.getValue(columnId);
+        rowValue = raw == null ? "" : String(raw);
+    }
 
     return filterValue.selectedValues.includes(rowValue);
 };
