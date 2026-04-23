@@ -27,6 +27,23 @@ class UserRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserAdminCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    full_name: str | None = None
+    is_active: bool = True
+    is_admin: bool = False
+
+
+class UserAdminUpdate(BaseModel):
+    email: str | None = None
+    full_name: str | None = None
+    is_active: bool | None = None
+    is_admin: bool | None = None
+    password: str | None = None
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

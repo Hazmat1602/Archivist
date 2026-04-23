@@ -39,6 +39,16 @@ export interface AuditFields {
   modified_at: string | null;
 }
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string | null;
+  is_active: boolean;
+  is_admin: boolean;
+  created_at: string;
+}
+
 export interface Category extends AuditFields {
   id: number;
   name: string;
@@ -198,5 +208,14 @@ export const api = {
     formData.append("file", file);
     return request<ImportResponse>("/api/imports/boxes", { method: "POST", body: formData });
   },
+
+  // Users (admin)
+  listUsers: () => request<User[]>("/api/users/"),
+  createUser: (data: { username: string; email: string; password: string; full_name?: string | null; is_active?: boolean; is_admin?: boolean }) =>
+    request<User>("/api/users/", { method: "POST", body: JSON.stringify(data) }),
+  updateUser: (id: number, data: { email?: string; full_name?: string | null; is_active?: boolean; is_admin?: boolean; password?: string }) =>
+    request<User>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteUser: (id: number) =>
+    request<void>(`/api/users/${id}`, { method: "DELETE" }),
 
 };
