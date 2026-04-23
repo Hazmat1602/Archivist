@@ -8,6 +8,7 @@ import { Locations } from "./pages/Locations";
 import { Archives } from "./pages/Archives";
 import { Settings } from "./pages/Settings";
 import { Imports } from "./pages/Imports";
+import { Users } from "./pages/Users";
 import { Login } from "./pages/Login";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import "./App.css";
@@ -38,6 +39,7 @@ function ProtectedRoutes() {
         <Route path="/archives" element={<Archives />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/imports" element={<Imports />} />
+        <Route path="/users" element={<Users />} />
       </Route>
     </Routes>
   );

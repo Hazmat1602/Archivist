@@ -10,6 +10,7 @@ import {
   Upload,
   LogOut,
   User,
+  Users,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -26,6 +27,9 @@ const links = [
 
 export function Sidebar() {
   const { user, logout } = useAuth();
+  const visibleLinks = user?.is_admin
+    ? [...links, { to: "/users", label: "Users", icon: Users }]
+    : links;
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-slate-50">
@@ -34,7 +38,7 @@ export function Sidebar() {
         <span className="text-lg font-bold text-slate-900">Archivist</span>
       </div>
       <nav className="flex-1 space-y-1 p-3">
-        {links.map(({ to, label, icon: Icon }) => (
+        {visibleLinks.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
