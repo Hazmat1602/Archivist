@@ -207,7 +207,7 @@ def _box_label_contexts(
             )
 
             context[f"code_{number}"] = box.code if box else ""
-            context[f"name_{number}"] = box.name if box else ""
+            context[f"name_{number}"] = (box.name or "") if box else ""
             context[f"create_{number}"] = (
                 _format_date(box.created_date) if box else ""
             )

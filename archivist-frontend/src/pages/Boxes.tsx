@@ -70,7 +70,7 @@ export function Boxes() {
       ),
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
     },
     {
       accessorKey: "name",
@@ -80,7 +80,7 @@ export function Boxes() {
       ),
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getFilterValue: (box) => box.name || "",
         getOptionLabel: (box) => box.name || "(Blank)",
@@ -92,7 +92,7 @@ export function Boxes() {
       cell: ({ row }) => row.original.created_date,
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       sortingFn: (a, b, id) => {
         const aTime = a.getValue<string | null>(id) ? new Date(a.getValue<string>(id)).getTime() : 0;
         const bTime = b.getValue<string | null>(id) ? new Date(b.getValue<string>(id)).getTime() : 0;
@@ -110,7 +110,7 @@ export function Boxes() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getOptionLabel: (box) => box.expiry_date || "(None)",
       },
@@ -133,7 +133,7 @@ export function Boxes() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getFilterValue: (box) => box.location_id != null ? String(box.location_id) : "",
         getOptionLabel: (box) => {
@@ -151,7 +151,7 @@ export function Boxes() {
       ),
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
     },
     {
       accessorKey: "modified_at",
@@ -174,7 +174,7 @@ export function Boxes() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getFilterValue: (box) => {
           if (box.modified_by != null) return `modified:${box.modified_by}`;
@@ -199,7 +199,7 @@ export function Boxes() {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
-        <div className="text-right">
+        <div className="text-right max-w-[80px]">
           <Button variant="ghost" size="icon" onClick={() => openEdit(row.original)}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -210,7 +210,7 @@ export function Boxes() {
       ),
       enableSorting: false,
       enableColumnFilter: false,
-      meta: { filterVariant: "none" as const, headerClassName: "text-right" },
+      meta: { filterVariant: "none" as const, headerClassName: "text-center" },
     },
   ], [locations]);
 
@@ -276,7 +276,7 @@ export function Boxes() {
                 <SelectTrigger><SelectValue placeholder="Select location (optional)" /></SelectTrigger>
                 <SelectContent>
                   {locations.map((l) => (
-                    <SelectItem key={l.id} value={String(l.id)}>{l.code} \u2013 {l.description}</SelectItem>
+                    <SelectItem key={l.id} value={String(l.id)}>{l.code} - {l.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -307,7 +307,7 @@ export function Boxes() {
                 <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
                 <SelectContent>
                   {locations.map((l) => (
-                    <SelectItem key={l.id} value={String(l.id)}>{l.code} \u2013 {l.description}</SelectItem>
+                    <SelectItem key={l.id} value={String(l.id)}>{l.code} - {l.description}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

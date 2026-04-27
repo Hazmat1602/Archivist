@@ -91,7 +91,7 @@ export function Folders() {
       ),
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getFilterValue: (folder) =>
             folder.retention_id == null ? "" : String(folder.retention_id),
@@ -107,7 +107,7 @@ export function Folders() {
       ),
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
     },
     {
       accessorKey: "start_date",
@@ -115,7 +115,7 @@ export function Folders() {
       cell: ({ row }) => row.original.start_date || "—",
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       sortingFn: (a, b, id) => {
         const aTime = a.getValue<string | null>(id) ? new Date(a.getValue<string>(id)).getTime() : 0;
         const bTime = b.getValue<string | null>(id) ? new Date(b.getValue<string>(id)).getTime() : 0;
@@ -137,7 +137,7 @@ export function Folders() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getOptionLabel: (folder) => folder.expiry_date || "Permanent",
       },
@@ -185,7 +185,7 @@ export function Folders() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getOptionLabel: (folder) => {
           if (!folder.box_id) return "Unassigned";
@@ -215,7 +215,7 @@ export function Folders() {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: "excelLikeMultiValue",
+      filterFn: "excelLikeMultiValue" as const,
       meta: {
         getFilterValue: (folder) => {
           if (folder.modified_by != null) return `modified:${folder.modified_by}`;
