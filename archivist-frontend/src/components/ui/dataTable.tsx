@@ -412,12 +412,7 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                                                              }: ExcelStyleDataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-    const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([]);
-    const [selectionAnchorIndex, setSelectionAnchorIndex] = React.useState<number | null>(null);
-
-    const resolveRowId = React.useCallback((row: TData, index: number) => (
-        rowIdAccessor ? rowIdAccessor(row, index) : String(index)
-    ), [rowIdAccessor]);
+    const [selectedRowId, setSelectedRowId] = React.useState<string | null>(null);
 
     const table = useReactTable({
         data,
@@ -450,79 +445,15 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
         setPageInput(String(table.getState().pagination.pageIndex + 1));
     }, [table.getState().pagination.pageIndex]);
 
-    const visibleRows = table.getRowModel().rows;
-    const visibleRowIds = React.useMemo(() => visibleRows.map((row) => row.id), [visibleRows]);
-    const visibleRowIdsSet = React.useMemo(() => new Set(visibleRowIds), [visibleRowIds]);
-
-    const selectedVisibleCount = React.useMemo(
-        () => selectedRowIds.filter((rowId) => visibleRowIdsSet.has(rowId)).length,
-        [selectedRowIds, visibleRowIdsSet]
-    );
-    const allVisibleSelected = visibleRows.length > 0 && selectedVisibleCount === visibleRows.length;
-    const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
-
-    const selectRowRange = React.useCallback((startIndex: number, endIndex: number) => {
-        const [start, end] = startIndex <= endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
-        return visibleRows.slice(start, end + 1).map((row) => row.id);
-    }, [visibleRows]);
-
-    const handleRowSelection = React.useCallback(
-        (rowId: string, rowIndex: number, event?: Pick<MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">) => {
-            const isRangeSelection = event?.shiftKey === true;
-            const isAdditiveSelection = event?.ctrlKey === true || event?.metaKey === true;
-
-            if (isRangeSelection) {
-                const anchor = selectionAnchorIndex ?? rowIndex;
-                const rangeIds = selectRowRange(anchor, rowIndex);
-                setSelectedRowIds((current) => (
-                    isAdditiveSelection ? Array.from(new Set([...current, ...rangeIds])) : rangeIds
-                ));
-                if (selectionAnchorIndex == null) {
-                    setSelectionAnchorIndex(rowIndex);
-                }
-                return;
-            }
-
-            if (isAdditiveSelection) {
-                setSelectedRowIds((current) => (
-                    current.includes(rowId)
-                        ? current.filter((id) => id !== rowId)
-                        : [...current, rowId]
-                ));
-                setSelectionAnchorIndex(rowIndex);
-                return;
-            }
-
-            setSelectedRowIds([rowId]);
-            setSelectionAnchorIndex(rowIndex);
-        },
-        [selectRowRange, selectionAnchorIndex]
-    );
-
-    const handleSelectAllVisible = React.useCallback((checked: boolean) => {
-        if (checked) {
-            setSelectedRowIds((current) => Array.from(new Set([...current, ...visibleRowIds])));
-            return;
-        }
-        setSelectedRowIds((current) => current.filter((rowId) => !visibleRowIdsSet.has(rowId)));
-    }, [visibleRowIds, visibleRowIdsSet]);
-
     React.useEffect(() => {
-        if (selectionResetKey == null) {
+        const visibleRows = table.getRowModel().rows;
+        if (!selectedRowId) {
             return;
         }
-        setSelectedRowIds([]);
-        setSelectionAnchorIndex(null);
-    }, [selectionResetKey]);
-
-    React.useEffect(() => {
-        if (!onSelectedRowsChange) {
-            return;
+        if (!visibleRows.some((row) => row.id === selectedRowId)) {
+            setSelectedRowId(null);
         }
-        const selectedIdSet = new Set(selectedRowIds);
-        const selectedRows = data.filter((row, index) => selectedIdSet.has(resolveRowId(row, index)));
-        onSelectedRowsChange(selectedRows);
-    }, [data, onSelectedRowsChange, resolveRowId, selectedRowIds]);
+    }, [selectedRowId, table, sorting, columnFilters]);
 
     const pageCount = Math.max(table.getPageCount(), 1);
 
@@ -561,30 +492,19 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
 
                     <TableBody>
                         {table.getRowModel().rows.length ? (
-                            table.getRowModel().rows.map((row, rowIndex) => (
+                            table.getRowModel().rows.map((row) => (
                                 <TableRow
                                     key={row.id}
                                     className="cursor-pointer"
-                                    data-state={selectedRowIds.includes(row.id) ? "selected" : undefined}
+                                    data-state={selectedRowId === row.id ? "selected" : undefined}
                                     onClick={(event) => {
                                         const target = event.target as HTMLElement;
                                         if (target.closest("button, a, input, select, textarea, [role='button']")) {
                                             return;
                                         }
-                                        handleRowSelection(row.id, rowIndex, event.nativeEvent);
+                                        setSelectedRowId((current) => (current === row.id ? null : row.id));
                                     }}
                                 >
-                                    <TableCell className="w-10 px-2">
-                                        <Checkbox
-                                            data-row-checkbox="true"
-                                            checked={selectedRowIds.includes(row.id)}
-                                            onClick={(event) => {
-                                                handleRowSelection(row.id, rowIndex, event.nativeEvent);
-                                            }}
-                                            onCheckedChange={() => {}}
-                                            aria-label="Select row"
-                                        />
-                                    </TableCell>
                                     {row.getVisibleCells().map((cell) => {
                                         const meta = cell.column.columnDef.meta;
                                         return (
