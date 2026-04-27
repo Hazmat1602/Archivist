@@ -96,19 +96,32 @@ type ExcelStyleDataTableProps<TData, TValue = unknown> = {
     selectionResetKey?: string | number;
 };
 
-const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue, _addMeta) => {
+const excelLikeMultiValueFilter: FilterFn<unknown> = (
+    row,
+    columnId,
+    filterValue
+) => {
+    const value = filterValue;
+
     if (
-        !filterValue ||
-        !Array.isArray(filterValue.selectedValues) ||
-        filterValue.selectedValues.length === 0
+        !value ||
+        !Array.isArray(value.selectedValues) ||
+        value.selectedValues.length === 0
     ) {
         return true;
     }
 
-    const meta = row.getAllCells().find((c: any) => c.column.id === columnId)?.column.columnDef.meta;
+    const meta = row
+        .getAllCells()
+        .find((c) => c.column.id === columnId)
+        ?.column.columnDef.meta as {
+        getFilterValue?: (row: unknown) => string;
+    };
+
     const getFilterValue = meta?.getFilterValue;
 
     let rowValue: string;
+
     if (typeof getFilterValue === "function") {
         rowValue = getFilterValue(row.original) ?? "";
     } else {
@@ -116,7 +129,7 @@ const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue, _a
         rowValue = raw == null ? "" : String(raw);
     }
 
-    return filterValue.selectedValues.includes(rowValue);
+    return value.selectedValues.includes(rowValue);
 };
 
 function SortIcon({ sorted }: { sorted: false | "asc" | "desc" }) {
@@ -503,6 +516,17 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
         setSelectedRowIds((current) => current.filter((rowId) => !visibleRowIdsSet.has(rowId)));
     }, [visibleRowIds, visibleRowIdsSet]);
 
+    const handleCheckboxSelection = React.useCallback(
+        (rowId: string, rowIndex: number, event: Pick<MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">) => {
+            handleRowSelection(rowId, rowIndex, {
+                shiftKey: event.shiftKey,
+                ctrlKey: true,
+                metaKey: event.metaKey,
+            });
+        },
+        [handleRowSelection]
+    );
+
     React.useEffect(() => {
         if (selectionResetKey == null) {
             return;
@@ -566,6 +590,11 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                                     key={row.id}
                                     className="cursor-pointer"
                                     data-state={selectedRowIds.includes(row.id) ? "selected" : undefined}
+                                    onMouseDown={(event) => {
+                                        if (event.shiftKey) {
+                                            event.preventDefault();
+                                        }
+                                    }}
                                     onClick={(event) => {
                                         const target = event.target as HTMLElement;
                                         if (target.closest("button, a, input, select, textarea, [role='button']")) {
@@ -578,8 +607,13 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                                         <Checkbox
                                             data-row-checkbox="true"
                                             checked={selectedRowIds.includes(row.id)}
+                                            onMouseDown={(event) => {
+                                                if (event.shiftKey) {
+                                                    event.preventDefault();
+                                                }
+                                            }}
                                             onClick={(event) => {
-                                                handleRowSelection(row.id, rowIndex, event.nativeEvent);
+                                                handleCheckboxSelection(row.id, rowIndex, event.nativeEvent);
                                             }}
                                             onCheckedChange={() => {}}
                                             aria-label="Select row"

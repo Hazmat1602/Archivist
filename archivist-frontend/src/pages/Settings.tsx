@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Database, Server, Info, User } from "lucide-react";
+import { Database, Server, Info, User, Wrench } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Settings() {
@@ -23,7 +23,7 @@ export function Settings() {
         } else {
           setStatus("error");
         }
-      } catch (err) {
+      } catch {
         setStatus("error");
       }
     };
@@ -117,6 +117,26 @@ export function Settings() {
             </div>
           </CardContent>
         </Card>
+          
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5" /> Database Controls
+            </CardTitle>
+            <CardDescription>Backend Storage Actions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Transfer Database</span>
+              
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-500">Clear Database</span>
+              
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -137,6 +157,10 @@ export function Settings() {
             <p className="text-sm text-slate-500">
               Archivist is a records management system for tracking physical archives, boxes, and folders
               with automated retention period calculations and lifecycle management.
+            </p>
+            <Separator />
+            <p className="text-sm text-slate-500">
+              Created by Harrison Brasch (hbras0)
             </p>
           </CardContent>
         </Card>

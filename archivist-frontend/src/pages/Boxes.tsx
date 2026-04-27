@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, type Box, type Location } from "@/lib/api";
+import { api, type Box, type Folder, type Location } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,10 +13,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
-import { Plus, Trash2, Package, Pencil, Printer } from "lucide-react";
+import {Plus, Trash2, Package, Pencil, Printer, MapPin} from "lucide-react";
 
 export function Boxes() {
   const [boxes, setBoxes] = useState<Box[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -28,9 +29,9 @@ export function Boxes() {
   const [selectionResetKey, setSelectionResetKey] = useState(0);
 
   const load = () => {
-    Promise.all([api.listBoxes(), api.listLocations()])
-      .then(([b, l]) => { setBoxes(b); setLocations(l); })
-      .finally(() => setLoading(false));
+    Promise.all([api.listBoxes(), api.listLocations(), api.listFolders()])
+        .then(([b, l, f]) => { setBoxes(b); setLocations(l); setFolders(f); })
+        .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
@@ -102,6 +103,36 @@ export function Boxes() {
     load();
   };
 
+  const isExpired = (expiry: string | null) => {
+    if (!expiry) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(expiry) < today;
+  };
+
+  const expiryVariantByBox = useMemo(() => {
+    const map = new Map<number, "destructive" | "warning" | "outline">();
+
+    boxes.forEach((box) => {
+      const boxFolders = folders.filter((folder) => folder.box_id === box.id);
+      if (boxFolders.length === 0) {
+        map.set(box.id, "outline");
+        return;
+      }
+
+      const expiredCount = boxFolders.filter((folder) => isExpired(folder.expiry_date)).length;
+      if (expiredCount === 0) {
+        map.set(box.id, "outline");
+      } else if (expiredCount === boxFolders.length) {
+        map.set(box.id, "destructive");
+      } else {
+        map.set(box.id, "warning");
+      }
+    });
+
+    return map;
+  }, [boxes, folders]);
+
   const columns = useMemo<ExcelColumnDef<Box>[]>(() => [
     {
       accessorKey: "code",
@@ -145,8 +176,9 @@ export function Boxes() {
       header: "Expiry",
       cell: ({ row }) => {
         const expiry = row.original.expiry_date;
+        const variant = expiryVariantByBox.get(row.original.id) || "outline";
         return expiry ? (
-          <Badge variant="outline">{expiry}</Badge>
+            <Badge variant={variant}>{expiry}</Badge>
         ) : "\u2014";
       },
       enableSorting: true,
@@ -253,7 +285,7 @@ export function Boxes() {
       enableColumnFilter: false,
       meta: { filterVariant: "none" as const, headerClassName: "text-center" },
     },
-  ], [locations]);
+  ], [expiryVariantByBox, locations]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
@@ -278,6 +310,7 @@ export function Boxes() {
                   setBulkAssignOpen(true);
                 }}
               >
+                <MapPin className="mr-2 h-4 w-4" />
                 Bulk Assign Location ({selectedBoxes.length})
               </Button>
               <Button variant="destructive" onClick={handleClearSelection}>

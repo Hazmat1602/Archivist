@@ -25,6 +25,7 @@ import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTa
 import { Plus, FolderOpen, Printer } from "lucide-react";
 
 export function Folders() {
+  const EXPIRING_SOON_DAYS = 365;
   const [folders, setFolders] = useState<Folder[]>([]);
   const [codes, setCodes] = useState<RetentionCode[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -103,7 +104,18 @@ export function Folders() {
 
   const isExpired = (expiry: string | null) => {
     if (!expiry) return false;
-    return new Date(expiry) < new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(expiry) < today;
+  };
+
+  const isExpiringSoon = (expiry: string | null) => {
+    if (!expiry || isExpired(expiry)) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const soonThreshold = new Date(today);
+    soonThreshold.setDate(soonThreshold.getDate() + EXPIRING_SOON_DAYS);
+    return new Date(expiry) <= soonThreshold;
   };
 
   const boxOptions = useMemo(
@@ -160,8 +172,13 @@ export function Folders() {
       header: "Expiry",
       cell: ({ row }) => {
         const expiry = row.original.expiry_date;
+        const variant = isExpired(expiry)
+            ? "destructive"
+            : isExpiringSoon(expiry)
+                ? "warning"
+                : "outline";
         return expiry ? (
-            <Badge variant={isExpired(expiry) ? "destructive" : "outline"}>
+            <Badge variant={variant}>
               {expiry}
             </Badge>
         ) : (

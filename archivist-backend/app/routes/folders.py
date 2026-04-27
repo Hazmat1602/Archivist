@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.models.box import Box
 from app.models.folder import Folder
 from app.models.retention_code import RetentionCode
 from app.models.user import User
@@ -67,6 +68,19 @@ def _folder_to_read(folder: Folder, db: Session, code_str: str | None = None) ->
         modified_at=folder.modified_at,
     )
 
+
+def _sync_box_expiry_from_folders(db: Session, box_id: int) -> None:
+    box = db.get(Box, box_id)
+    if not box:
+        raise HTTPException(404, "Box not found")
+
+    oldest_folder_expiry = (
+        db.query(func.min(Folder.expiry_date))
+        .filter(Folder.box_id == box_id, Folder.expiry_date.is_not(None))
+        .scalar()
+    )
+    box.expiry_date = oldest_folder_expiry
+    
 
 @router.get("/", response_model=list[FolderRead])
 def list_folders(
@@ -138,8 +152,15 @@ def update_folder(folder_id: int, body: FolderUpdate, db: Session = Depends(get_
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    previous_box_id = folder.box_id
+    updates = body.model_dump(exclude_unset=True)
+    for key, value in updates.items():
         setattr(folder, key, value)
+    if "box_id" in updates:
+        if previous_box_id is not None and previous_box_id != folder.box_id:
+            _sync_box_expiry_from_folders(db, previous_box_id)
+        if folder.box_id is not None:
+            _sync_box_expiry_from_folders(db, folder.box_id)
     folder.modified_by = user.id
     folder.modified_at = datetime.now(timezone.utc)
     db.commit()
@@ -161,7 +182,11 @@ def assign_folder_to_box(folder_id: int, box_id: int, db: Session = Depends(get_
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
+    previous_box_id = folder.box_id
     folder.box_id = box_id
+    if previous_box_id is not None and previous_box_id != box_id:
+        _sync_box_expiry_from_folders(db, previous_box_id)
+    _sync_box_expiry_from_folders(db, box_id)
     folder.modified_by = user.id
     folder.modified_at = datetime.now(timezone.utc)
     db.commit()
@@ -174,7 +199,10 @@ def unassign_folder(folder_id: int, db: Session = Depends(get_db), user: User = 
     folder = db.get(Folder, folder_id)
     if not folder:
         raise HTTPException(404, "Folder not found")
+    previous_box_id = folder.box_id
     folder.box_id = None
+    if previous_box_id is not None:
+        _sync_box_expiry_from_folders(db, previous_box_id)
     folder.modified_by = user.id
     folder.modified_at = datetime.now(timezone.utc)
     db.commit()
