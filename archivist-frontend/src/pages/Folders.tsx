@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type Folder, type RetentionCode, type Box } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,9 +30,12 @@ export function Folders() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
+  const [selectedFolders, setSelectedFolders] = useState<Folder[]>([]);
   const [form, setForm] = useState({ code: "", name: "", start_date: "" });
   const [selectedBox, setSelectedBox] = useState("");
+  const [selectionResetKey, setSelectionResetKey] = useState(0);
 
   const load = () => {
     Promise.all([api.listFolders(), api.listCodes(), api.listBoxes()])
@@ -67,6 +70,30 @@ export function Folders() {
     await api.unassignFolder(id);
     load();
   };
+
+  const handleBulkAssign = async () => {
+    if (!selectedBox || selectedFolders.length === 0) return;
+
+    await Promise.all(selectedFolders.map((folder) => api.assignFolder(folder.id, parseInt(selectedBox, 10))));
+    setBulkAssignOpen(false);
+    setSelectedBox("");
+    setSelectedFolders([]);
+    setSelectionResetKey((key) => key + 1);
+    load();
+  };
+
+  const handlePrintSelectedLabels = async () => {
+    if (selectedFolders.length === 0) return;
+    try {
+      await api.downloadFolderLabels(selectedFolders.map((folder) => folder.id));
+    } catch {
+      alert("Failed to generate selected folder labels");
+    }
+  };
+
+  const handleSelectedRowsChange = useCallback((rows: Folder[]) => {
+    setSelectedFolders(rows);
+  }, []);
 
   const isExpired = (expiry: string | null) => {
     if (!expiry) return false;
@@ -250,6 +277,13 @@ export function Folders() {
         <div className="flex gap-2">
           <Button
             variant="outline"
+            onClick={handlePrintSelectedLabels}
+            disabled={selectedFolders.length === 0}
+          >
+            <Printer className="mr-2 h-4 w-4" /> Print Selected Labels ({selectedFolders.length})
+          </Button>
+          <Button
+            variant="outline"
             onClick={async () => {
               try {
                 await api.downloadFolderLabels();
@@ -258,7 +292,17 @@ export function Folders() {
               }
             }}
           >
-            <Printer className="mr-2 h-4 w-4" /> Print Labels
+            <Printer className="mr-2 h-4 w-4" /> Print All Labels
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSelectedBox("");
+              setBulkAssignOpen(true);
+            }}
+            disabled={selectedFolders.length === 0}
+          >
+            Bulk Assign to Box ({selectedFolders.length})
           </Button>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> New Folder
@@ -283,6 +327,9 @@ export function Folders() {
                   data={folders}
                   pageSize={10}
                   emptyMessage="No folders found."
+                  rowIdAccessor={(folder) => String(folder.id)}
+                  onSelectedRowsChange={handleSelectedRowsChange}
+                  selectionResetKey={selectionResetKey}
               />
           )}
         </CardContent>
@@ -345,6 +392,34 @@ export function Folders() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
             <Button onClick={handleAssign} disabled={!selectedBox}>Assign</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign to Box Dialog */}
+      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Assign Folders to Box</DialogTitle>
+            <DialogDescription>
+              Assign {selectedFolders.length} selected folder{selectedFolders.length === 1 ? "" : "s"} to a box.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={selectedBox} onValueChange={setSelectedBox}>
+              <SelectTrigger><SelectValue placeholder="Select a box" /></SelectTrigger>
+              <SelectContent>
+                {boxes.map((b) => (
+                  <SelectItem key={b.id} value={String(b.id)}>{b.code} – {b.name || "Unnamed"}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkAssignOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkAssign} disabled={!selectedBox || selectedFolders.length === 0}>
+              Assign Selected
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

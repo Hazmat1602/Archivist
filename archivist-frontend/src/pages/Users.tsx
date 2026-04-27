@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type User } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,48 @@ export function Users() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
+
+  const handleUserSelection = (userId: number, rowIndex: number, event?: Pick<MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">) => {
+    const isRangeSelection = event?.shiftKey === true;
+    const isAdditiveSelection = event?.ctrlKey === true || event?.metaKey === true;
+
+    if (isRangeSelection) {
+      const anchor = selectionAnchorIndex ?? rowIndex;
+      const [start, end] = anchor <= rowIndex ? [anchor, rowIndex] : [rowIndex, anchor];
+      const rangeIds = users.slice(start, end + 1).map((u) => u.id);
+      setSelectedUserIds((current) => (isAdditiveSelection ? Array.from(new Set([...current, ...rangeIds])) : rangeIds));
+      if (selectionAnchorIndex == null) {
+        setSelectionAnchorIndex(rowIndex);
+      }
+      return;
+    }
+
+    if (isAdditiveSelection) {
+      setSelectedUserIds((current) => (
+        current.includes(userId)
+          ? current.filter((id) => id !== userId)
+          : [...current, userId]
+      ));
+      setSelectionAnchorIndex(rowIndex);
+      return;
+    }
+
+    setSelectedUserIds([userId]);
+    setSelectionAnchorIndex(rowIndex);
+  };
+
+  const allVisibleSelected = users.length > 0 && selectedUserIds.length === users.length;
+  const someVisibleSelected = selectedUserIds.length > 0 && !allVisibleSelected;
+
+  const handleSelectAllVisibleUsers = (checked: boolean) => {
+    if (checked) {
+      setSelectedUserIds(users.map((u) => u.id));
+      return;
+    }
+    setSelectedUserIds([]);
+  };
 
   const loadUsers = () => {
     setError("");
@@ -50,6 +93,14 @@ export function Users() {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  useEffect(() => {
+    const visibleIds = new Set(users.map((u) => u.id));
+    setSelectedUserIds((current) => current.filter((id) => visibleIds.has(id)));
+    if (selectionAnchorIndex !== null && (selectionAnchorIndex < 0 || selectionAnchorIndex >= users.length)) {
+      setSelectionAnchorIndex(null);
+    }
+  }, [users, selectionAnchorIndex]);
 
   const openCreate = () => {
     setEditUser(null);
@@ -132,6 +183,13 @@ export function Users() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10 px-2">
+                  <Checkbox
+                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={(checked) => handleSelectAllVisibleUsers(checked === true)}
+                    aria-label="Select all users"
+                  />
+                </TableHead>
                 <TableHead>Username</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
@@ -141,8 +199,30 @@ export function Users() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
-                <TableRow key={u.id}>
+              {users.map((u, rowIndex) => (
+                <TableRow
+                  key={u.id}
+                  className="cursor-pointer"
+                  data-state={selectedUserIds.includes(u.id) ? "selected" : undefined}
+                  onClick={(event) => {
+                    const target = event.target as HTMLElement;
+                    if (target.closest("button, a, input, select, textarea, [role='button']")) {
+                      return;
+                    }
+                    handleUserSelection(u.id, rowIndex, event.nativeEvent);
+                  }}
+                >
+                  <TableCell className="w-10 px-2">
+                    <Checkbox
+                      data-row-checkbox="true"
+                      checked={selectedUserIds.includes(u.id)}
+                      onClick={(event) => {
+                        handleUserSelection(u.id, rowIndex, event.nativeEvent);
+                      }}
+                      onCheckedChange={() => {}}
+                      aria-label={`Select ${u.username}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{u.username}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{u.full_name || "—"}</TableCell>
