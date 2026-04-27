@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type Box, type Location } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -21,6 +22,10 @@ export function Boxes() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editBox, setEditBox] = useState<Box | null>(null);
   const [form, setForm] = useState({ name: "", location_id: "" });
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [selectedBoxes, setSelectedBoxes] = useState<Box[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState("");
+  const [selectionResetKey, setSelectionResetKey] = useState(0);
 
   const load = () => {
     Promise.all([api.listBoxes(), api.listLocations()])
@@ -59,6 +64,42 @@ export function Boxes() {
   const openEdit = (box: Box) => {
     setEditBox(box);
     setForm({ name: box.name || "", location_id: box.location_id ? String(box.location_id) : "" });
+  };
+
+  const handleSelectedRowsChange = useCallback((rows: Box[]) => {
+    setSelectedBoxes(rows);
+  }, []);
+
+  const handleClearSelection = () => {
+    setSelectedBoxes([]);
+    setSelectionResetKey((key) => key + 1);
+  };
+
+  const handlePrintSelectedLabels = async () => {
+    if (selectedBoxes.length === 0) return;
+    try {
+      await api.downloadBoxLabels(selectedBoxes.map((box) => box.id));
+    } catch {
+      alert("Failed to generate selected box labels");
+    }
+  };
+
+  const handleBulkAssignLocation = async () => {
+    if (!selectedLocation || selectedBoxes.length === 0) return;
+
+    await Promise.all(
+      selectedBoxes.map((box) =>
+        api.updateBox(box.id, {
+          location_id: parseInt(selectedLocation, 10),
+        }),
+      ),
+    );
+
+    setBulkAssignOpen(false);
+    setSelectedLocation("");
+    setSelectedBoxes([]);
+    setSelectionResetKey((key) => key + 1);
+    load();
   };
 
   const columns = useMemo<ExcelColumnDef<Box>[]>(() => [
@@ -224,6 +265,27 @@ export function Boxes() {
           <p className="text-sm text-slate-500">{boxes.length} boxes total</p>
         </div>
         <div className="flex gap-2">
+          {selectedBoxes.length > 0 && (
+            <>
+              <Button variant="outline" onClick={handlePrintSelectedLabels}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print Selected Labels ({selectedBoxes.length})
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedLocation("");
+                  setBulkAssignOpen(true);
+                }}
+              >
+                Bulk Assign Location ({selectedBoxes.length})
+              </Button>
+              <Button variant="destructive" onClick={handleClearSelection}>
+                Clear
+              </Button>
+              <Separator orientation="vertical" className="h-9" />
+            </>
+          )}
           <Button
             variant="outline"
             onClick={async () => {
@@ -254,6 +316,9 @@ export function Boxes() {
             data={boxes}
             pageSize={10}
             emptyMessage="No boxes yet. Create one to get started."
+            rowIdAccessor={(box) => String(box.id)}
+            onSelectedRowsChange={handleSelectedRowsChange}
+            selectionResetKey={selectionResetKey}
           />
         </CardContent>
       </Card>
@@ -316,6 +381,36 @@ export function Boxes() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditBox(null)}>Cancel</Button>
             <Button onClick={handleUpdate}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Location Dialog */}
+      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bulk Assign Boxes to Location</DialogTitle>
+            <DialogDescription>
+              Assign {selectedBoxes.length} selected box{selectedBoxes.length === 1 ? "" : "es"} to a location.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+              <SelectTrigger><SelectValue placeholder="Select a location" /></SelectTrigger>
+              <SelectContent>
+                {locations.map((location) => (
+                  <SelectItem key={location.id} value={String(location.id)}>
+                    {location.code} - {location.description}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkAssignOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkAssignLocation} disabled={!selectedLocation || selectedBoxes.length === 0}>
+              Assign Selected
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
