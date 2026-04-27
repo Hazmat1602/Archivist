@@ -20,7 +20,7 @@ const links = [
   { to: "/boxes", label: "Boxes", icon: Box },
   { to: "/codes", label: "Retention Codes", icon: FileCode2 },
   { to: "/locations", label: "Locations", icon: MapPin },
-  { to: "/archives", label: "Archives", icon: Archive },
+  //{ to: "/archives", label: "Archives", icon: Archive },
   { to: "/imports", label: "Import", icon: Upload },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
