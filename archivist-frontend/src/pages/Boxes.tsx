@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
-import { Plus, Trash2, Package, Pencil } from "lucide-react";
+import { Plus, Trash2, Package, Pencil, Printer } from "lucide-react";
 
 export function Boxes() {
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -223,9 +223,23 @@ export function Boxes() {
           <h1 className="text-2xl font-bold text-slate-900">Boxes</h1>
           <p className="text-sm text-slate-500">{boxes.length} boxes total</p>
         </div>
-        <Button onClick={() => { setForm({ name: "", location_id: "" }); setDialogOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> New Box
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await api.downloadBoxLabels();
+              } catch {
+                alert("Failed to generate box labels");
+              }
+            }}
+          >
+            <Printer className="mr-2 h-4 w-4" /> Print Labels
+          </Button>
+          <Button onClick={() => { setForm({ name: "", location_id: "" }); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> New Box
+          </Button>
+        </div>
       </div>
 
       <Card>

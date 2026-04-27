@@ -218,4 +218,37 @@ export const api = {
   deleteUser: (id: number) =>
     request<void>(`/api/users/${id}`, { method: "DELETE" }),
 
+  // Labels (downloads .docx files)
+  downloadFolderLabels: async (folderIds?: number[]) => {
+    const res = await fetch(`${API_BASE}/api/labels/folders`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ folder_ids: folderIds ?? null }),
+    });
+    if (!res.ok) throw new Error(`Label generation failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "folder_labels.docx";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  downloadBoxLabels: async (boxIds?: number[]) => {
+    const res = await fetch(`${API_BASE}/api/labels/boxes`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ box_ids: boxIds ?? null }),
+    });
+    if (!res.ok) throw new Error(`Label generation failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "box_labels.docx";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
 };
