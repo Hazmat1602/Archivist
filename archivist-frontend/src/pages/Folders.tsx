@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
-import { Plus, FolderOpen } from "lucide-react";
+import { Plus, FolderOpen, Printer } from "lucide-react";
 
 export function Folders() {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -247,9 +247,23 @@ export function Folders() {
           <h1 className="text-2xl font-bold text-slate-900">Folders</h1>
           <p className="text-sm text-slate-500">{folders.length} folders total</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> New Folder
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await api.downloadFolderLabels();
+              } catch {
+                alert("Failed to generate folder labels");
+              }
+            }}
+          >
+            <Printer className="mr-2 h-4 w-4" /> Print Labels
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> New Folder
+          </Button>
+        </div>
       </div>
 
       <Card>

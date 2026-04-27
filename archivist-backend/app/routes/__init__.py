@@ -8,6 +8,7 @@ from app.routes.folders import router as folders_router
 from app.routes.stats import router as stats_router
 from app.routes.imports import router as imports_router
 from app.routes.users import router as users_router
+from app.routes.labels import router as labels_router
 
 __all__ = [
     "auth_router",
@@ -20,4 +21,5 @@ __all__ = [
     "stats_router",
     "imports_router",
     "users_router",
+    "labels_router",
 ]
