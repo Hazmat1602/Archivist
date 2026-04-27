@@ -54,7 +54,7 @@ def _render_label_pages(
             continue
 
         next_page = Document(buffer)
-        for element in next_page.element.body:
+        for element in list(next_page.element.body):
             rendered_document.element.body.append(element)
 
     output = BytesIO()
