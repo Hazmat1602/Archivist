@@ -9,7 +9,7 @@ import {
     type ColumnDef,
     type ColumnFiltersState,
     type FilterFn,
-    type SortingState,
+    type SortingState, Column,
 } from "@tanstack/react-table";
 
 type FilterOption = { label: string; value: string };
@@ -143,7 +143,7 @@ function HeaderFilterMenu<TData>({
                                      title,
                                      data,
                                  }: {
-    column: any;
+    column: Column<TData, unknown>;
     title: React.ReactNode;
     data: TData[];
 }) {
@@ -151,6 +151,7 @@ function HeaderFilterMenu<TData>({
     const filterVariant: FilterVariant = meta?.filterVariant ?? "text";
 
     const filterValue = column.getFilterValue() as MultiValueFilter | undefined;
+
     const appliedSelectedValues = React.useMemo(
         () => filterValue?.selectedValues ?? [],
         [filterValue]
@@ -161,26 +162,6 @@ function HeaderFilterMenu<TData>({
         [appliedSelectedValues]
     );
 
-    const [open, setOpen] = React.useState(false);
-    const [search, setSearch] = React.useState("");
-    const [draftSelected, setDraftSelected] = React.useState<string[]>(appliedSelectedValues);
-
-    React.useEffect(() => {
-        if (open) {
-            setDraftSelected(appliedSelectedValues);
-            setSearch("");
-        }
-    }, [open, appliedSelectedKey, appliedSelectedValues]);
-
-    if (filterVariant === "none") {
-        return (
-            <div className="flex items-center gap-2">
-                <span>{title}</span>
-                {column.getCanSort() && <SortIcon sorted={column.getIsSorted()} />}
-            </div>
-        );
-    }
-
     const options = React.useMemo(() => {
         if (meta?.filterOptions?.length) {
             return meta.filterOptions;
@@ -189,16 +170,18 @@ function HeaderFilterMenu<TData>({
         const values = new Map<string, string>();
 
         for (const row of data) {
-            const rawValue = meta?.getFilterValue
-                ? meta.getFilterValue(row)
-                : column.accessorFn
-                    ? column.accessorFn(row, 0)
-                    : column.accessorKey
-                        ? (row as any)[column.accessorKey]
-                        : undefined;
+            let rawValue: unknown;
+
+            if (meta?.getFilterValue) {
+                rawValue = meta.getFilterValue(row);
+            } else if ("accessorKey" in column.columnDef && column.columnDef.accessorKey) {
+                rawValue = row[column.columnDef.accessorKey as keyof TData];
+            }
 
             const value = rawValue == null ? "" : String(rawValue);
-            const label = meta?.getOptionLabel ? meta.getOptionLabel(row) : value || "(Blank)";
+            const label = meta?.getOptionLabel
+                ? meta.getOptionLabel(row)
+                : value || "(Blank)";
 
             if (!values.has(value)) {
                 values.set(value, label);
@@ -208,38 +191,65 @@ function HeaderFilterMenu<TData>({
         return Array.from(values.entries())
             .map(([value, label]) => ({ value, label }))
             .sort((a, b) => a.label.localeCompare(b.label));
-    }, [data, meta, column]);
+    }, [data, meta, column.columnDef]);
+
+    const [open, setOpen] = React.useState(false);
+    const [search, setSearch] = React.useState("");
+    const [draftSelected, setDraftSelected] =
+        React.useState<string[]>(appliedSelectedValues);
+
+    React.useEffect(() => {
+        if (open) {
+            setDraftSelected(appliedSelectedValues);
+            setSearch("");
+        }
+    }, [open, appliedSelectedKey, appliedSelectedValues]);
 
     const filteredOptions = React.useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return options;
-        return options.filter((option: FilterOption) => option.label.toLowerCase().includes(q));
+
+        return options.filter((option) =>
+            option.label.toLowerCase().includes(q)
+        );
     }, [options, search]);
 
     const allVisibleSelected =
         filteredOptions.length > 0 &&
-        filteredOptions.every((option: FilterOption) => draftSelected.includes(option.value));
+        filteredOptions.every((option) =>
+            draftSelected.includes(option.value)
+        );
 
     const someVisibleSelected =
-        filteredOptions.some((option: FilterOption) => draftSelected.includes(option.value)) && !allVisibleSelected;
+        filteredOptions.some((option) =>
+            draftSelected.includes(option.value)
+        ) && !allVisibleSelected;
 
     const hasActiveFilter = appliedSelectedValues.length > 0;
 
     const toggleValue = (value: string, checked: boolean) => {
         setDraftSelected((prev) =>
-            checked ? Array.from(new Set([...prev, value])) : prev.filter((v) => v !== value)
+            checked
+                ? Array.from(new Set([...prev, value]))
+                : prev.filter((v) => v !== value)
         );
     };
 
     const handleSelectAllVisible = (checked: boolean) => {
         if (checked) {
             setDraftSelected((prev) => {
-                const merged = new Set([...prev, ...filteredOptions.map((o: FilterOption) => o.value)]);
+                const merged = new Set([
+                    ...prev,
+                    ...filteredOptions.map((o) => o.value),
+                ]);
+
                 return Array.from(merged);
             });
         } else {
             setDraftSelected((prev) =>
-                prev.filter((value) => !filteredOptions.some((o: FilterOption) => o.value === value))
+                prev.filter(
+                    (value) => !filteredOptions.some((o) => o.value === value)
+                )
             );
         }
     };
@@ -247,7 +257,10 @@ function HeaderFilterMenu<TData>({
     const applyFilter = () => {
         const normalisedDraft = Array.from(new Set(draftSelected));
 
-        if (normalisedDraft.length === 0 || normalisedDraft.length === options.length) {
+        if (
+            normalisedDraft.length === 0 ||
+            normalisedDraft.length === options.length
+        ) {
             column.setFilterValue(undefined);
         } else {
             column.setFilterValue({ selectedValues: normalisedDraft });
@@ -263,6 +276,17 @@ function HeaderFilterMenu<TData>({
         setOpen(false);
     };
 
+    if (filterVariant === "none") {
+        return (
+            <div className="flex items-center gap-2">
+                <span>{title}</span>
+                {column.getCanSort() && (
+                    <SortIcon sorted={column.getIsSorted()} />
+                )}
+            </div>
+        );
+    }
+    
     return (
         <div className="flex items-center justify-between gap-2">
             <button
@@ -271,7 +295,9 @@ function HeaderFilterMenu<TData>({
                 onClick={column.getToggleSortingHandler()}
             >
                 <span>{title}</span>
-                {column.getCanSort() && <SortIcon sorted={column.getIsSorted()} />}
+                {column.getCanSort() && (
+                    <SortIcon sorted={column.getIsSorted()} />
+                )}
             </button>
 
             <Popover open={open} onOpenChange={setOpen}>
@@ -287,6 +313,7 @@ function HeaderFilterMenu<TData>({
                         )}
                     >
                         <ListFilter className="h-4 w-4" />
+
                         {hasActiveFilter && (
                             <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white">
                 {appliedSelectedValues.length}
@@ -361,14 +388,23 @@ function HeaderFilterMenu<TData>({
                             }}
                         >
                             <Checkbox
-                                checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                                checked={
+                                    allVisibleSelected
+                                        ? true
+                                        : someVisibleSelected
+                                            ? "indeterminate"
+                                            : false
+                                }
                                 onClick={(e) => e.stopPropagation()}
-                                onCheckedChange={(checked) => handleSelectAllVisible(checked === true)}
+                                onCheckedChange={(checked) =>
+                                    handleSelectAllVisible(checked === true)
+                                }
                             />
+
                             <span className="text-sm">(Select All)</span>
                         </div>
 
-                        {filteredOptions.map((option: FilterOption) => {
+                        {filteredOptions.map((option) => {
                             const checked = draftSelected.includes(option.value);
 
                             return (
@@ -388,22 +424,32 @@ function HeaderFilterMenu<TData>({
                                     <Checkbox
                                         checked={checked}
                                         onClick={(e) => e.stopPropagation()}
-                                        onCheckedChange={(nextChecked) => toggleValue(option.value, nextChecked === true)}
+                                        onCheckedChange={(nextChecked) =>
+                                            toggleValue(option.value, nextChecked === true)
+                                        }
                                     />
+
                                     <span className="text-sm">{option.label}</span>
                                 </div>
                             );
                         })}
 
                         {filteredOptions.length === 0 && (
-                            <div className="px-2 py-3 text-sm text-slate-500">No matching values</div>
+                            <div className="px-2 py-3 text-sm text-slate-500">
+                                No matching values
+                            </div>
                         )}
                     </div>
 
                     <div className="flex justify-end gap-2 border-t p-2">
-                        <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOpen(false)}
+                        >
                             Cancel
                         </Button>
+
                         <Button size="sm" onClick={applyFilter}>
                             OK
                         </Button>
