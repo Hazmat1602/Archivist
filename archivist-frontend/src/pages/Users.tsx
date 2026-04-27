@@ -38,6 +38,7 @@ export function Users() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   const loadUsers = () => {
     setError("");
@@ -142,7 +143,18 @@ export function Users() {
             </TableHeader>
             <TableBody>
               {users.map((u) => (
-                <TableRow key={u.id}>
+                <TableRow
+                  key={u.id}
+                  className="cursor-pointer"
+                  data-state={selectedUserId === u.id ? "selected" : undefined}
+                  onClick={(event) => {
+                    const target = event.target as HTMLElement;
+                    if (target.closest("button, a, input, select, textarea, [role='button']")) {
+                      return;
+                    }
+                    setSelectedUserId((current) => (current === u.id ? null : u.id));
+                  }}
+                >
                   <TableCell className="font-medium">{u.username}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{u.full_name || "—"}</TableCell>

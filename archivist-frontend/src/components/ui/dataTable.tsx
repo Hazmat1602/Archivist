@@ -406,6 +406,7 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                                                              }: ExcelStyleDataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+    const [selectedRowId, setSelectedRowId] = React.useState<string | null>(null);
 
     const table = useReactTable({
         data,
@@ -436,6 +437,16 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
     React.useEffect(() => {
         setPageInput(String(table.getState().pagination.pageIndex + 1));
     }, [table.getState().pagination.pageIndex]);
+
+    React.useEffect(() => {
+        const visibleRows = table.getRowModel().rows;
+        if (!selectedRowId) {
+            return;
+        }
+        if (!visibleRows.some((row) => row.id === selectedRowId)) {
+            setSelectedRowId(null);
+        }
+    }, [selectedRowId, table, sorting, columnFilters]);
 
     const pageCount = Math.max(table.getPageCount(), 1);
 
@@ -468,7 +479,18 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                     <TableBody>
                         {table.getRowModel().rows.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id}>
+                                <TableRow
+                                    key={row.id}
+                                    className="cursor-pointer"
+                                    data-state={selectedRowId === row.id ? "selected" : undefined}
+                                    onClick={(event) => {
+                                        const target = event.target as HTMLElement;
+                                        if (target.closest("button, a, input, select, textarea, [role='button']")) {
+                                            return;
+                                        }
+                                        setSelectedRowId((current) => (current === row.id ? null : row.id));
+                                    }}
+                                >
                                     {row.getVisibleCells().map((cell) => {
                                         const meta = cell.column.columnDef.meta;
                                         return (
