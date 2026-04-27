@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type User } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,14 @@ export function Users() {
   useEffect(() => {
     loadUsers();
   }, []);
+
+  useEffect(() => {
+    const visibleIds = new Set(users.map((u) => u.id));
+    setSelectedUserIds((current) => current.filter((id) => visibleIds.has(id)));
+    if (selectionAnchorIndex !== null && (selectionAnchorIndex < 0 || selectionAnchorIndex >= users.length)) {
+      setSelectionAnchorIndex(null);
+    }
+  }, [users, selectionAnchorIndex]);
 
   const openCreate = () => {
     setEditUser(null);
@@ -133,6 +142,13 @@ export function Users() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10 px-2">
+                  <Checkbox
+                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={(checked) => handleSelectAllVisibleUsers(checked === true)}
+                    aria-label="Select all users"
+                  />
+                </TableHead>
                 <TableHead>Username</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>

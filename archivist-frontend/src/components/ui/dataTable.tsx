@@ -91,6 +91,9 @@ type ExcelStyleDataTableProps<TData, TValue = unknown> = {
     data: TData[];
     pageSize?: number;
     emptyMessage?: string;
+    rowIdAccessor?: (row: TData, index: number) => string;
+    onSelectedRowsChange?: (rows: TData[]) => void;
+    selectionResetKey?: string | number;
 };
 
 const excelLikeMultiValueFilter: FilterFn<any> = (row, columnId, filterValue, _addMeta) => {
@@ -403,6 +406,9 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                                                                  data,
                                                                  pageSize = 10,
                                                                  emptyMessage = "No results.",
+                                                                 rowIdAccessor,
+                                                                 onSelectedRowsChange,
+                                                                 selectionResetKey,
                                                              }: ExcelStyleDataTableProps<TData, TValue>) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -424,6 +430,7 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
+        getRowId: (row, index) => resolveRowId(row, index),
         initialState: {
             pagination: {
                 pageIndex: 0,
@@ -457,6 +464,13 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
+                                <TableHead className="w-10 px-2">
+                                    <Checkbox
+                                        checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                                        onCheckedChange={(checked) => handleSelectAllVisible(checked === true)}
+                                        aria-label="Select all visible rows"
+                                    />
+                                </TableHead>
                                 {headerGroup.headers.map((header) => {
                                     const meta = header.column.columnDef.meta;
 
@@ -503,7 +517,7 @@ export function ExcelStyleDataTable<TData, TValue = unknown>({
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center text-slate-500">
+                                <TableCell colSpan={columns.length + 1} className="h-24 text-center text-slate-500">
                                     {emptyMessage}
                                 </TableCell>
                             </TableRow>
