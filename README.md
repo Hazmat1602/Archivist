@@ -73,6 +73,22 @@ Create a `.env` file in `archivist-frontend/`:
 VITE_API_URL=http://localhost:8000
 ```
 
+## Developer Experience Improvements
+
+This repository includes a root `Makefile` with common tasks so you do not need to remember separate backend/frontend commands.
+
+```bash
+make install      # install backend + frontend dependencies
+make dev-backend  # run FastAPI with reload
+make dev-frontend # run Vite dev server
+make lint         # run frontend lint + backend compile check
+make build        # build frontend assets
+```
+
+Service-specific setup details live in:
+- `archivist-backend/README.md`
+- `archivist-frontend/README.md`
+
 ## Tech Stack
 
 | Layer | Technology |
