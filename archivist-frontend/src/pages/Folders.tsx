@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -94,6 +95,11 @@ export function Folders() {
   const handleSelectedRowsChange = useCallback((rows: Folder[]) => {
     setSelectedFolders(rows);
   }, []);
+
+  const handleClearSelection = () => {
+    setSelectedFolders([]);
+    setSelectionResetKey((key) => key + 1);
+  };
 
   const isExpired = (expiry: string | null) => {
     if (!expiry) return false;
@@ -275,34 +281,48 @@ export function Folders() {
           <p className="text-sm text-slate-500">{folders.length} folders total</p>
         </div>
         <div className="flex gap-2">
+          {selectedFolders.length > 0 && (
+              <>
+                <Button
+                    variant="outline"
+                    onClick={handlePrintSelectedLabels}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Selected Labels ({selectedFolders.length})
+                </Button>
+
+                <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedBox("");
+                      setBulkAssignOpen(true);
+                    }}
+                >
+                  Bulk Assign to Box ({selectedFolders.length})
+                </Button>
+
+                <Button
+                    variant="destructive"
+                    onClick={handleClearSelection}
+                >
+                  Clear
+                </Button>
+                <Separator orientation="vertical" className="h-9" />
+              </>
+          )}
+          
+          
           <Button
-            variant="outline"
-            onClick={handlePrintSelectedLabels}
-            disabled={selectedFolders.length === 0}
-          >
-            <Printer className="mr-2 h-4 w-4" /> Print Selected Labels ({selectedFolders.length})
-          </Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                await api.downloadFolderLabels();
-              } catch {
-                alert("Failed to generate folder labels");
-              }
-            }}
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await api.downloadFolderLabels();
+                } catch {
+                  alert("Failed to generate folder labels");
+                }
+              }}
           >
             <Printer className="mr-2 h-4 w-4" /> Print All Labels
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSelectedBox("");
-              setBulkAssignOpen(true);
-            }}
-            disabled={selectedFolders.length === 0}
-          >
-            Bulk Assign to Box ({selectedFolders.length})
           </Button>
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> New Folder
