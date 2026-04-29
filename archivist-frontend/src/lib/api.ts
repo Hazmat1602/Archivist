@@ -210,7 +210,7 @@ export const api = {
   },
 
   // Users (admin)
-  listUsers: () => request<User[]>("/api/users/"),
+  listUsers: (offset = 0, limit = 100) => request<User[]>(`/api/users/?offset=${offset}&limit=${limit}`),
   createUser: (data: { username: string; email: string; password: string; full_name?: string | null; is_active?: boolean; is_admin?: boolean }) =>
     request<User>("/api/users/", { method: "POST", body: JSON.stringify(data) }),
   updateUser: (id: number, data: { email?: string; full_name?: string | null; is_active?: boolean; is_admin?: boolean; password?: string }) =>

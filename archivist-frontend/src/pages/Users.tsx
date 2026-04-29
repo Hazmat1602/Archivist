@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
 import { api, type User } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Users as UsersIcon } from "lucide-react";
+import { KeyRound, Plus, Shield, Trash2, Users as UsersIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface UserForm {
@@ -31,91 +36,83 @@ const emptyForm: UserForm = {
   is_admin: false,
 };
 
+const PAGE_SIZE = 100;
+
 export function Users() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState<UserForm>(emptyForm);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [roleDialogUser, setRoleDialogUser] = useState<User | null>(null);
+  const [resetDialogUser, setResetDialogUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
-  const loadUsers = () => {
+  const loadUsers = async () => {
     setError("");
-    api.listUsers()
-      .then(setUsers)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
+    setLoading(true);
+    try {
+      const allUsers: User[] = [];
+      let offset = 0;
+
+      while (true) {
+        const page = await api.listUsers(offset, PAGE_SIZE);
+        allUsers.push(...page);
+        if (page.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+      }
+
+      setUsers(allUsers);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadUsers();
+    void loadUsers();
   }, []);
 
-  useEffect(() => {
-    const visibleIds = new Set(users.map((u) => u.id));
-    setSelectedUserIds((current) => current.filter((id) => visibleIds.has(id)));
-    if (selectionAnchorIndex !== null && (selectionAnchorIndex < 0 || selectionAnchorIndex >= users.length)) {
-      setSelectionAnchorIndex(null);
-    }
-  }, [users, selectionAnchorIndex]);
-
-  const openCreate = () => {
-    setEditUser(null);
-    setForm(emptyForm);
-    setDialogOpen(true);
-  };
-
-  const openEdit = (selected: User) => {
-    setEditUser(selected);
-    setForm({
-      username: selected.username,
-      email: selected.email,
-      full_name: selected.full_name || "",
-      password: "",
-      is_active: selected.is_active,
-      is_admin: selected.is_admin,
+  const handleCreate = async () => {
+    await api.createUser({
+      username: form.username,
+      email: form.email,
+      full_name: form.full_name || null,
+      password: form.password,
+      is_active: form.is_active,
+      is_admin: form.is_admin,
     });
-    setDialogOpen(true);
+
+    setDialogOpen(false);
+    setForm(emptyForm);
+    await loadUsers();
   };
 
-  const handleSave = async () => {
-    if (editUser) {
-      await api.updateUser(editUser.id, {
-        email: form.email,
-        full_name: form.full_name || null,
-        is_active: form.is_active,
-        is_admin: form.is_admin,
-        ...(form.password ? { password: form.password } : {}),
-      });
-    } else {
-      await api.createUser({
-        username: form.username,
-        email: form.email,
-        full_name: form.full_name || null,
-        password: form.password,
-        is_active: form.is_active,
-        is_admin: form.is_admin,
-      });
-    }
-    setDialogOpen(false);
-    setEditUser(null);
-    setForm(emptyForm);
-    loadUsers();
+  const handleUpdateRole = async (isAdmin: boolean) => {
+    if (!roleDialogUser) return;
+    await api.updateUser(roleDialogUser.id, { is_admin: isAdmin });
+    setRoleDialogUser(null);
+    await loadUsers();
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetDialogUser || !newPassword) return;
+
+    await api.updateUser(resetDialogUser.id, { password: newPassword });
+    setResetDialogUser(null);
+    setNewPassword("");
+    await loadUsers();
   };
 
   const handleDelete = async (id: number) => {
     await api.deleteUser(id);
-    loadUsers();
+    await loadUsers();
   };
 
   if (!currentUser?.is_admin) {
-    return (
-      <div className="py-8 text-slate-500">
-        You need admin access to manage users.
-      </div>
-    );
+    return <div className="py-8 text-slate-500">You need admin access to manage users.</div>;
   }
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
@@ -127,7 +124,7 @@ export function Users() {
           <h1 className="text-2xl font-bold text-slate-900">Users</h1>
           <p className="text-sm text-slate-500">{users.length} accounts</p>
         </div>
-        <Button onClick={openCreate}>
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> New User
         </Button>
       </div>
@@ -136,19 +133,14 @@ export function Users() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><UsersIcon className="h-5 w-5" /> User Directory</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <UsersIcon className="h-5 w-5" /> User Directory
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10 px-2">
-                  <Checkbox
-                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
-                    onCheckedChange={(checked) => handleSelectAllVisibleUsers(checked === true)}
-                    aria-label="Select all users"
-                  />
-                </TableHead>
                 <TableHead>Username</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
@@ -159,18 +151,7 @@ export function Users() {
             </TableHeader>
             <TableBody>
               {users.map((u) => (
-                <TableRow
-                  key={u.id}
-                  className="cursor-pointer"
-                  data-state={selectedUserId === u.id ? "selected" : undefined}
-                  onClick={(event) => {
-                    const target = event.target as HTMLElement;
-                    if (target.closest("button, a, input, select, textarea, [role='button']")) {
-                      return;
-                    }
-                    setSelectedUserId((current) => (current === u.id ? null : u.id));
-                  }}
-                >
+                <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.username}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>{u.full_name || "—"}</TableCell>
@@ -181,18 +162,23 @@ export function Users() {
                     <Badge variant={u.is_admin ? "default" : "secondary"}>{u.is_admin ? "Admin" : "User"}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(u)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(u.id)}
-                      disabled={u.id === currentUser.id}
-                      title={u.id === currentUser.id ? "You cannot delete yourself" : "Delete user"}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setRoleDialogUser(u)} title="Update role">
+                        <Shield className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setResetDialogUser(u)} title="Reset password">
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(u.id)}
+                        disabled={u.id === currentUser.id}
+                        title={u.id === currentUser.id ? "You cannot delete yourself" : "Delete user"}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -204,19 +190,14 @@ export function Users() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editUser ? "Edit User" : "Create User"}</DialogTitle>
-            <DialogDescription>
-              {editUser ? "Update account details and permissions." : "Create a new account and set initial access."}
-            </DialogDescription>
+            <DialogTitle>Create User</DialogTitle>
+            <DialogDescription>Create a new account and set initial access.</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
-            {!editUser && (
-              <div className="space-y-2">
-                <Label>Username</Label>
-                <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label>Username</Label>
+              <Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+            </div>
             <div className="space-y-2">
               <Label>Email</Label>
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -226,40 +207,54 @@ export function Users() {
               <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>{editUser ? "New Password (optional)" : "Password"}</Label>
+              <Label>Password</Label>
               <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
             </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="is_active"
-                type="checkbox"
-                checked={form.is_active}
-                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-              />
-              <Label htmlFor="is_active">Active account</Label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="is_admin"
-                type="checkbox"
-                checked={form.is_admin}
-                onChange={(e) => setForm({ ...form, is_admin: e.target.checked })}
-                disabled={editUser?.id === currentUser.id}
-              />
-              <Label htmlFor="is_admin">Admin privileges</Label>
-            </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleSave}
-              disabled={!form.email || (!editUser && (!form.username || !form.password))}
+            <Button onClick={handleCreate} disabled={!form.username || !form.email || !form.password}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(roleDialogUser)} onOpenChange={(open) => !open && setRoleDialogUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Role</DialogTitle>
+            <DialogDescription>Change account role for {roleDialogUser?.username}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select
+              value={roleDialogUser?.is_admin ? "admin" : "user"}
+              onValueChange={(value) => handleUpdateRole(value === "admin")}
             >
-              {editUser ? "Save" : "Create"}
-            </Button>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(resetDialogUser)} onOpenChange={(open) => !open && setResetDialogUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>Set a new password for {resetDialogUser?.username}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>New Password</Label>
+            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialogUser(null)}>Cancel</Button>
+            <Button onClick={handleResetPassword} disabled={!newPassword}>Reset Password</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
