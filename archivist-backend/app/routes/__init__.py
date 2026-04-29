@@ -9,6 +9,7 @@ from app.routes.stats import router as stats_router
 from app.routes.imports import router as imports_router
 from app.routes.users import router as users_router
 from app.routes.labels import router as labels_router
+from app.routes.admin import router as admin_router
 
 __all__ = [
     "auth_router",
@@ -22,4 +23,5 @@ __all__ = [
     "imports_router",
     "users_router",
     "labels_router",
+    "admin_router",
 ]
