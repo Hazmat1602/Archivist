@@ -1,14 +1,14 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
+from app.auth import get_current_user, hash_password
 from app.database import get_db
 from app.models.box import Box
 from app.models.category import Category
@@ -18,6 +18,12 @@ from app.models.retention_code import RetentionCode
 from app.models.user import User
 
 router = APIRouter(prefix="/imports", tags=["imports"])
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user
 
 
 class _UploadEvent:
@@ -67,8 +73,6 @@ def _get_or_create_category(
         is_subcategory=is_subcategory,
         parent_id=parent_id,
         created_by=user_id,
-        modified_by=user_id,
-        modified_at=datetime.now(timezone.utc),
     )
     db.add(category)
     db.flush()
@@ -119,8 +123,6 @@ async def import_codes(
                 period=period,
                 date=fixed_date,
                 created_by=user.id,
-                modified_by=user.id,
-                modified_at=datetime.now(timezone.utc),
             )
             db.add(code)
             created += 1
@@ -158,8 +160,6 @@ async def import_locations(
                 description=str(row.get("Description") or "").strip(),
                 local_storage=bool(row.get("On Site")),
                 created_by=user.id,
-                modified_by=user.id,
-                modified_at=datetime.now(timezone.utc),
             )
             db.add(location)
             created += 1
@@ -249,8 +249,6 @@ async def import_folders(
             start_date=start_date,
             expiry_date=expiry_date,
             created_by=user.id,
-            modified_by=user.id,
-            modified_at=datetime.now(timezone.utc),
         )
         db.add(folder)
         db.flush()
@@ -312,8 +310,6 @@ async def import_boxes(
             created_date=created_date,
             expiry_date=expiry_date,
             created_by=user.id,
-            modified_by=user.id,
-            modified_at=datetime.now(timezone.utc),
         )
         db.add(box)
         db.flush()
@@ -321,8 +317,54 @@ async def import_boxes(
 
         for folder in folders_to_assign:
             folder.box_id = box.id
-            folder.modified_by = user.id
-            folder.modified_at = datetime.now(timezone.utc)
 
     db.commit()
     return {"created": len(created_codes), "box_codes": created_codes, "duplicates": duplicates, "failed": failed}
+
+
+@router.post("/users")
+async def import_users(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    df = await _read_spreadsheet(file)
+    created = 0
+    duplicates: list[str] = []
+    failed: list[str] = []
+
+    for row_index, row in df.iterrows():
+        username = str(row.get("Username") or "").strip()
+        email = str(row.get("Email") or "").strip()
+        password = str(row.get("Password") or "").strip()
+
+        if not username:
+            failed.append(f"Row {row_index + 2}: missing Username")
+            continue
+        if not email:
+            failed.append(f"Row {row_index + 2} ({username}): missing Email")
+            continue
+        if not password:
+            failed.append(f"Row {row_index + 2} ({username}): missing Password")
+            continue
+
+        if db.query(User).filter((User.username == username) | (User.email == email)).first():
+            duplicates.append(username)
+            continue
+
+        is_admin = str(row.get("Is Admin") or "").strip().lower() in {"1", "true", "yes", "y"}
+        is_active = str(row.get("Is Active") or "true").strip().lower() not in {"0", "false", "no", "n"}
+
+        user = User(
+            username=username,
+            email=email,
+            hashed_password=hash_password(password),
+            full_name=str(row.get("Full Name") or "").strip() or None,
+            is_admin=is_admin,
+            is_active=is_active,
+        )
+        db.add(user)
+        created += 1
+
+    db.commit()
+    return {"created": created, "duplicates": duplicates, "failed": failed}

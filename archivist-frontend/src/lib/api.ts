@@ -209,6 +209,12 @@ export const api = {
     return request<ImportResponse>("/api/imports/boxes", { method: "POST", body: formData });
   },
 
+  importUsers: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request<ImportResponse>("/api/imports/users", { method: "POST", body: formData });
+  },
+
   // Users (admin)
   listUsers: (offset = 0, limit = 100) => request<User[]>(`/api/users/?offset=${offset}&limit=${limit}`),
   createUser: (data: { username: string; email: string; password: string; full_name?: string | null; is_active?: boolean; is_admin?: boolean }) =>

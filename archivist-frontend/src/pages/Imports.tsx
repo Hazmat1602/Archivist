@@ -5,8 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileUp, CheckCircle, AlertCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
-type ImportType = "codes" | "locations" | "folders" | "boxes";
+type ImportType = "codes" | "locations" | "folders" | "boxes" | "users";
 
 interface ImportResult {
   type: ImportType;
@@ -18,6 +19,9 @@ interface ImportResult {
 export function Imports() {
   const [importing, setImporting] = useState<ImportType | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [folderIds, setFolderIds] = useState<string[]>([]);
+  const [includeFolderIds, setIncludeFolderIds] = useState(false);
+  const { user } = useAuth();
   const [files, setFiles] = useState<Partial<Record<ImportType, File | null>>>({
     codes: null,
     locations: null,
@@ -34,6 +38,7 @@ export function Imports() {
     let success = 0;
     let duplicates: string[] = [];
     let failed: string[] = [];
+    let returnedFolderIds: string[] = [];
 
     try {
       if (type === "codes") {
@@ -51,6 +56,12 @@ export function Imports() {
         success = res.created;
         duplicates = res.duplicates;
         failed = res.failed;
+        returnedFolderIds = res.retention_ids ?? [];
+      } else if (type === "users") {
+        const res = await api.importUsers(file);
+        success = res.created;
+        duplicates = res.duplicates;
+        failed = res.failed;
       } else {
         const res = await api.importBoxes(file);
         success = res.created;
@@ -62,6 +73,7 @@ export function Imports() {
     }
 
     setResult({ type, success, duplicates, failed });
+    setFolderIds(type === "folders" && includeFolderIds ? returnedFolderIds : []);
     setImporting(null);
     setFiles((prev) => ({ ...prev, [type]: null }));
   };
@@ -98,6 +110,10 @@ export function Imports() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Import Data</h1>
         <p className="text-sm text-slate-500">Upload Excel files to import codes, locations, folders, and boxes.</p>
+        <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+          <input id="export-folder-ids" type="checkbox" checked={includeFolderIds} onChange={(e) => setIncludeFolderIds(e.target.checked)} />
+          <Label htmlFor="export-folder-ids">When importing folders, include generated retention IDs in results</Label>
+        </div>
       </div>
 
       {result && (
@@ -139,11 +155,24 @@ export function Imports() {
         </Card>
       )}
 
+      {folderIds.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Imported Folder Retention IDs</CardTitle>
+            <CardDescription>Copy these IDs for downstream processes.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <textarea className="h-40 w-full rounded-md border p-2 text-sm" readOnly value={folderIds.join("\n")} />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         {renderImportCard("folders", "Import Folders", "Columns: Code, Name, Start Date")}
         {renderImportCard("boxes", "Import Boxes", "Columns: Name, optional Retention IDs")}
         {renderImportCard("codes", "Import Retention Codes", "Columns: Category, Sub-Category, Code, Name, Description, Retention Description, Retention Period/Retention Date")}
         {renderImportCard("locations", "Import Locations", "Columns: Code, Description, On Site")}
+        {user?.is_admin && renderImportCard("users", "Import Users (Admin)", "Columns: Username, Email, Password, optional Full Name, Is Admin, Is Active")}
       </div>
     </div>
   );
