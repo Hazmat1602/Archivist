@@ -111,6 +111,9 @@ export function Users() {
     await loadUsers();
   };
 
+  const activeAdminCount = users.filter((u) => u.is_admin && u.is_active).length;
+  const isLastActiveAdmin = (u: User) => u.is_admin && u.is_active && activeAdminCount === 1;
+
   if (!currentUser?.is_admin) {
     return <div className="py-8 text-slate-500">You need admin access to manage users.</div>;
   }
@@ -150,7 +153,21 @@ export function Users() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
+              {users.map((u) => {
+                const lastActiveAdmin = isLastActiveAdmin(u);
+                const cannotDeleteSelf = u.id === currentUser.id;
+                const disableRoleChange = lastActiveAdmin;
+                const disableDelete = cannotDeleteSelf || lastActiveAdmin;
+                const roleTitle = disableRoleChange
+                  ? "Cannot change role for the last active admin"
+                  : "Update role";
+                const deleteTitle = cannotDeleteSelf
+                  ? "You cannot delete yourself"
+                  : lastActiveAdmin
+                    ? "Cannot delete the last active admin"
+                    : "Delete user";
+
+                return (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.username}</TableCell>
                   <TableCell>{u.email}</TableCell>
@@ -163,7 +180,13 @@ export function Users() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => setRoleDialogUser(u)} title="Update role">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setRoleDialogUser(u)}
+                        disabled={disableRoleChange}
+                        title={roleTitle}
+                      >
                         <Shield className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => setResetDialogUser(u)} title="Reset password">
@@ -173,15 +196,16 @@ export function Users() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(u.id)}
-                        disabled={u.id === currentUser.id}
-                        title={u.id === currentUser.id ? "You cannot delete yourself" : "Delete user"}
+                        disabled={disableDelete}
+                        title={deleteTitle}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
