@@ -14,4 +14,5 @@ class User(Base):
     full_name = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    password_temporary = Column(Boolean, default=False, nullable=False)
     created_at = Column("createdAt", DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

@@ -54,6 +54,7 @@ def create_user(
         full_name=body.full_name,
         is_active=body.is_active,
         is_admin=body.is_admin,
+        password_temporary=body.password_temporary,
     )
     db.add(user)
     db.commit()
@@ -90,6 +91,7 @@ def update_user(
 
     if password:
         user.hashed_password = hash_password(password)
+        user.password_temporary = True
 
     if current_admin.id == user.id and not user.is_admin:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot remove your own admin access")
