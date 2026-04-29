@@ -217,6 +217,8 @@ export const api = {
     request<User>(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteUser: (id: number) =>
     request<void>(`/api/users/${id}`, { method: "DELETE" }),
+  clearDatabase: () =>
+    request<{ status: string }>("/api/admin/clear-database", { method: "POST" }),
 
   // Labels (downloads .docx files)
   downloadFolderLabels: async (folderIds?: number[]) => {
