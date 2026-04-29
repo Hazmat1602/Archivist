@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, FileCode2, Pencil } from "lucide-react";
+import { useUserDisplayMap } from "@/lib/userDisplay";
 
 export function Codes() {
   const [codes, setCodes] = useState<RetentionCode[]>([]);
@@ -26,6 +27,7 @@ export function Codes() {
     period_description: "", period: "", m_period: "", date: "",
   });
   const [catForm, setCatForm] = useState({ name: "", parent_id: "" });
+  const { getUserLabel } = useUserDisplayMap();
 
   const load = () => {
     Promise.all([api.listCodes(), api.listCategories()])
@@ -164,10 +166,10 @@ export function Codes() {
           <span className="text-xs text-slate-400">
             {c.modified_by != null ? (
               <span title={c.modified_at ? new Date(c.modified_at).toLocaleString() : undefined}>
-                User #{c.modified_by}
+                {getUserLabel(c.modified_by)}
               </span>
             ) : c.created_by != null ? (
-              <span>Created by #{c.created_by}</span>
+              <span>Created by {getUserLabel(c.created_by)}</span>
             ) : (
               "\u2014"
             )}
@@ -184,8 +186,8 @@ export function Codes() {
           return "none";
         },
         getOptionLabel: (code) => {
-          if (code.modified_by != null) return `User #${code.modified_by}`;
-          if (code.created_by != null) return `Created by #${code.created_by}`;
+          if (code.modified_by != null) return getUserLabel(code.modified_by) || "—";
+          if (code.created_by != null) return `Created by ${getUserLabel(code.created_by)}`;
           return "\u2014";
         },
       },
@@ -214,7 +216,7 @@ export function Codes() {
       enableColumnFilter: false,
       meta: { filterVariant: "none" as const, headerClassName: "text-right" },
     },
-  ], [categories]);
+  ], [categories, getUserLabel]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 

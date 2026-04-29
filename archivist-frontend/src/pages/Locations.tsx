@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
+import { useUserDisplayMap } from "@/lib/userDisplay";
 
 export function Locations() {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -17,6 +18,7 @@ export function Locations() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editLoc, setEditLoc] = useState<Location | null>(null);
   const [form, setForm] = useState({ code: "", description: "", local_storage: true });
+  const { getUserLabel } = useUserDisplayMap();
 
   const load = () => {
     api.listLocations().then(setLocations).finally(() => setLoading(false));
@@ -95,10 +97,10 @@ export function Locations() {
           <span className="text-xs text-slate-400">
             {l.modified_by != null ? (
               <span title={l.modified_at ? new Date(l.modified_at).toLocaleString() : undefined}>
-                User #{l.modified_by}
+                {getUserLabel(l.modified_by)}
               </span>
             ) : l.created_by != null ? (
-              <span>Created by #{l.created_by}</span>
+              <span>Created by {getUserLabel(l.created_by)}</span>
             ) : (
               "\u2014"
             )}
@@ -115,8 +117,8 @@ export function Locations() {
           return "none";
         },
         getOptionLabel: (loc) => {
-          if (loc.modified_by != null) return `User #${loc.modified_by}`;
-          if (loc.created_by != null) return `Created by #${loc.created_by}`;
+          if (loc.modified_by != null) return getUserLabel(loc.modified_by) || "—";
+          if (loc.created_by != null) return `Created by ${getUserLabel(loc.created_by)}`;
           return "\u2014";
         },
       },
@@ -145,7 +147,7 @@ export function Locations() {
       enableColumnFilter: false,
       meta: { filterVariant: "none" as const, headerClassName: "text-right" },
     },
-  ], []);
+  ], [getUserLabel]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 

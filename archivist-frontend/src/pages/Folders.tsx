@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, FolderOpen, Printer } from "lucide-react";
+import { useUserDisplayMap } from "@/lib/userDisplay";
 
 export function Folders() {
   const EXPIRING_SOON_DAYS = 365;
@@ -38,6 +39,7 @@ export function Folders() {
   const [form, setForm] = useState({ code: "", name: "", start_date: "" });
   const [selectedBox, setSelectedBox] = useState("");
   const [selectionResetKey, setSelectionResetKey] = useState(0);
+  const { getUserLabel } = useUserDisplayMap();
 
   const load = () => {
     Promise.all([api.listFolders(), api.listCodes(), api.listBoxes()])
@@ -117,15 +119,6 @@ export function Folders() {
     soonThreshold.setDate(soonThreshold.getDate() + EXPIRING_SOON_DAYS);
     return new Date(expiry) <= soonThreshold;
   };
-
-  const boxOptions = useMemo(
-      () =>
-          boxes.map((b) => ({
-            label: `${b.code} – ${b.name || "Unnamed"}`,
-            value: String(b.id),
-          })),
-      [boxes]
-  );
 
   const columns = useMemo<ExcelColumnDef<Folder>[]>(() => [
     {
@@ -253,10 +246,10 @@ export function Folders() {
             <span className="text-xs text-slate-400">
         {f.modified_by != null ? (
             <span title={f.modified_at ? new Date(f.modified_at).toLocaleString() : undefined}>
-            User #{f.modified_by}
+            {getUserLabel(f.modified_by)}
           </span>
         ) : f.created_by != null ? (
-            <span>Created by #{f.created_by}</span>
+            <span>Created by {getUserLabel(f.created_by)}</span>
         ) : (
             "—"
         )}
@@ -273,8 +266,8 @@ export function Folders() {
           return "none";
         },
         getOptionLabel: (folder) => {
-          if (folder.modified_by != null) return `User #${folder.modified_by}`;
-          if (folder.created_by != null) return `Created by #${folder.created_by}`;
+          if (folder.modified_by != null) return getUserLabel(folder.modified_by) || "—";
+          if (folder.created_by != null) return `Created by ${getUserLabel(folder.created_by)}`;
           return "—";
         },
       },
@@ -286,7 +279,7 @@ export function Folders() {
         return aTime - bTime;
       },
     },
-  ], [boxes, handleUnassign, isExpiringSoon]);
+  ], [boxes, handleUnassign, isExpiringSoon, getUserLabel]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
