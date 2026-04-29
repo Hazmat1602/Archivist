@@ -13,7 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
-import {Plus, Trash2, Package, Pencil, Printer, MapPin} from "lucide-react";
+import { Plus, Trash2, Package, Pencil, Printer, MapPin } from "lucide-react";
+import { useUserDisplayMap } from "@/lib/userDisplay";
 
 export function Boxes() {
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -27,6 +28,7 @@ export function Boxes() {
   const [selectedBoxes, setSelectedBoxes] = useState<Box[]>([]);
   const [selectedLocation, setSelectedLocation] = useState("");
   const [selectionResetKey, setSelectionResetKey] = useState(0);
+  const { getUserLabel } = useUserDisplayMap();
 
   const load = () => {
     Promise.all([api.listBoxes(), api.listLocations(), api.listFolders()])
@@ -235,10 +237,10 @@ export function Boxes() {
           <span className="text-xs text-slate-400">
             {b.modified_by != null ? (
               <span title={b.modified_at ? new Date(b.modified_at).toLocaleString() : undefined}>
-                User #{b.modified_by}
+                {getUserLabel(b.modified_by)}
               </span>
             ) : b.created_by != null ? (
-              <span>Created by #{b.created_by}</span>
+              <span>Created by {getUserLabel(b.created_by)}</span>
             ) : (
               "\u2014"
             )}
@@ -255,8 +257,8 @@ export function Boxes() {
           return "none";
         },
         getOptionLabel: (box) => {
-          if (box.modified_by != null) return `User #${box.modified_by}`;
-          if (box.created_by != null) return `Created by #${box.created_by}`;
+          if (box.modified_by != null) return getUserLabel(box.modified_by) || "—";
+          if (box.created_by != null) return `Created by ${getUserLabel(box.created_by)}`;
           return "\u2014";
         },
       },
