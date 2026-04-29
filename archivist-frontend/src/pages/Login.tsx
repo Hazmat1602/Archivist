@@ -3,12 +3,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { Archive } from "lucide-react";
 
 export function Login() {
-  const { login, register } = useAuth();
-  const [isRegister, setIsRegister] = useState(false);
+  const { login } = useAuth();
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -17,11 +14,7 @@ export function Login() {
     setError("");
     setLoading(true);
     try {
-      if (isRegister) {
-        await register(username, email, password, fullName);
-      } else {
-        await login(username, password);
-      }
+      await login(username, password);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -38,7 +31,7 @@ export function Login() {
         </div>
 
         <h2 className="mb-6 text-center text-lg font-semibold text-slate-700">
-          {isRegister ? "Create Account" : "Sign In"}
+          Sign In
         </h2>
 
         {error && (
@@ -61,34 +54,6 @@ export function Login() {
             />
           </div>
 
-          {isRegister && (
-            <>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
-                  placeholder="Optional"
-                />
-              </div>
-            </>
-          )}
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -108,22 +73,9 @@ export function Login() {
             disabled={loading}
             className="w-full rounded-lg bg-slate-900 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            {loading ? "Please wait..." : isRegister ? "Create Account" : "Sign In"}
+            {loading ? "Please wait..." : "Sign In"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-slate-500">
-          {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setError("");
-            }}
-            className="font-medium text-slate-900 hover:underline"
-          >
-            {isRegister ? "Sign In" : "Create Account"}
-          </button>
-        </p>
       </div>
     </div>
   );

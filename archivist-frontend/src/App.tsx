@@ -10,6 +10,7 @@ import { Settings } from "./pages/Settings";
 import { Imports } from "./pages/Imports";
 import { Users } from "./pages/Users";
 import { Login } from "./pages/Login";
+import { ChangePassword } from "./pages/ChangePassword";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import "./App.css";
 
@@ -26,6 +27,9 @@ function ProtectedRoutes() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  if (user.password_temporary) {
+    return <Navigate to="/change-password" replace />;
   }
 
   return (
@@ -59,6 +63,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/change-password" element={!user ? <Navigate to="/login" replace /> : user.password_temporary ? <ChangePassword /> : <Navigate to="/" replace />} />
       <Route path="/*" element={<ProtectedRoutes />} />
     </Routes>
   );
