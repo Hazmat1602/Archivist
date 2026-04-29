@@ -287,7 +287,7 @@ export function Boxes() {
       enableColumnFilter: false,
       meta: { filterVariant: "none" as const, headerClassName: "text-center" },
     },
-  ], [expiryVariantByBox, locations, handleDelete, openEdit]);
+  ], [expiryVariantByBox, locations, handleDelete, openEdit, getUserLabel]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">Loading...</div>;
 
