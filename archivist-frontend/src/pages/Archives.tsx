@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { ExcelStyleDataTable, type ExcelColumnDef } from "@/components/ui/dataTable";
 import { Plus, Trash2, Archive as ArchiveIcon, Pencil } from "lucide-react";
+import { useUserDisplayMap } from "@/lib/userDisplay";
 
 export function Archives() {
   const [archives, setArchives] = useState<Archive[]>([]);
@@ -17,6 +18,7 @@ export function Archives() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editArc, setEditArc] = useState<Archive | null>(null);
   const [form, setForm] = useState({ code: "", name: "", address: "" });
+  const { getUserLabel } = useUserDisplayMap();
 
   const load = () => {
     api.listArchives().then(setArchives).finally(() => setLoading(false));
@@ -93,10 +95,10 @@ export function Archives() {
           <span className="text-xs text-slate-400">
             {a.modified_by != null ? (
               <span title={a.modified_at ? new Date(a.modified_at).toLocaleString() : undefined}>
-                User #{a.modified_by}
+                {getUserLabel(a.modified_by)}
               </span>
             ) : a.created_by != null ? (
-              <span>Created by #{a.created_by}</span>
+              <span>Created by {getUserLabel(a.created_by)}</span>
             ) : (
               "\u2014"
             )}
@@ -113,8 +115,8 @@ export function Archives() {
           return "none";
         },
         getOptionLabel: (arc) => {
-          if (arc.modified_by != null) return `User #${arc.modified_by}`;
-          if (arc.created_by != null) return `Created by #${arc.created_by}`;
+          if (arc.modified_by != null) return getUserLabel(arc.modified_by) || "—";
+          if (arc.created_by != null) return `Created by ${getUserLabel(arc.created_by)}`;
           return "\u2014";
         },
       },
