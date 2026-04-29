@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, hash_password
@@ -7,6 +8,16 @@ from app.models.user import User
 from app.schemas.user import UserAdminCreate, UserAdminUpdate, UserRead
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _active_admin_count(db: Session) -> int:
+    return db.query(func.count(User.id)).filter(User.is_admin.is_(True), User.is_active.is_(True)).scalar() or 0
+
+
+def _would_remove_last_active_admin(target: User, changes: dict[str, object]) -> bool:
+    is_admin_after = bool(changes.get("is_admin", target.is_admin))
+    is_active_after = bool(changes.get("is_active", target.is_active))
+    return target.is_admin and target.is_active and (not is_admin_after or not is_active_after)
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
@@ -67,6 +78,12 @@ def update_user(
         if db.query(User).filter(User.email == changes["email"], User.id != user_id).first():
             raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
 
+    if _would_remove_last_active_admin(user, changes) and _active_admin_count(db) <= 1:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "At least one active admin account is required",
+        )
+
     password = changes.pop("password", None)
     for key, value in changes.items():
         setattr(user, key, value)
@@ -93,6 +110,11 @@ def delete_user(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     if user.id == current_admin.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot delete your own account")
+    if user.is_admin and user.is_active and _active_admin_count(db) <= 1:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "At least one active admin account is required",
+        )
 
     db.delete(user)
     db.commit()
