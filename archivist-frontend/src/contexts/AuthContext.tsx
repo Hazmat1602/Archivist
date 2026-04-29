@@ -10,6 +10,7 @@ export interface User {
   full_name: string | null;
   is_active: boolean;
   is_admin: boolean;
+  password_temporary: boolean;
   created_at: string;
 }
 
@@ -19,6 +20,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string, fullName?: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -85,8 +87,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   };
 
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const currentToken = localStorage.getItem("token");
+    if (!currentToken) throw new Error("You are not logged in");
+    const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${currentToken}`,
+      },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: "Password change failed" }));
+      throw new Error(body.detail || "Password change failed");
+    }
+    const updatedUser = (await res.json()) as User;
+    setUser(updatedUser);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

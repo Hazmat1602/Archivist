@@ -22,6 +22,7 @@ class UserRead(BaseModel):
     full_name: str | None
     is_active: bool
     is_admin: bool
+    password_temporary: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -34,6 +35,7 @@ class UserAdminCreate(BaseModel):
     full_name: str | None = None
     is_active: bool = True
     is_admin: bool = False
+    password_temporary: bool = True
 
 
 class UserAdminUpdate(BaseModel):
@@ -42,6 +44,12 @@ class UserAdminUpdate(BaseModel):
     is_active: bool | None = None
     is_admin: bool | None = None
     password: str | None = None
+    password_temporary: bool | None = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class Token(BaseModel):
