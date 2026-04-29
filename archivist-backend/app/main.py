@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
+from sqlalchemy.orm import Session
 
+from app.auth import hash_password
 from app.database import Base, engine
 from app.models import Archive, Box, Category, Folder, Location, RetentionCode, User  # noqa: F401
 from app.routes import (
@@ -40,6 +43,33 @@ def on_startup():
         Location.__table__.create(bind=engine, checkfirst=True)
         Archive.__table__.create(bind=engine, checkfirst=True)
         User.__table__.create(bind=engine, checkfirst=True)
+
+        inspector = inspect(engine)
+        user_columns = {column["name"] for column in inspector.get_columns("Users")}
+        if "password_temporary" not in user_columns:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE [Users] "
+                        "ADD [password_temporary] BIT NOT NULL CONSTRAINT [DF_Users_password_temporary] DEFAULT 0"
+                    )
+                )
+
+        with Session(engine) as session:
+            admin_user = session.query(User).filter(User.username == "admin").first()
+            if not admin_user:
+                session.add(
+                    User(
+                        username="admin",
+                        email="admin@archivist.local",
+                        hashed_password=hash_password("admin"),
+                        full_name="Administrator",
+                        is_active=True,
+                        is_admin=True,
+                        password_temporary=False,
+                    )
+                )
+                session.commit()
     except Exception:
         # Connection may not be available at import time (e.g. during CI);
         # tables will be created on first successful connection.
