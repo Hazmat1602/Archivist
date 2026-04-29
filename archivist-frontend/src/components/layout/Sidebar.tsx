@@ -14,22 +14,25 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
-const links = [
+const topLinks = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/folders", label: "Folders", icon: FolderOpen },
   { to: "/boxes", label: "Boxes", icon: Box },
   { to: "/codes", label: "Retention Codes", icon: FileCode2 },
   { to: "/locations", label: "Locations", icon: MapPin },
   //{ to: "/archives", label: "Archives", icon: Archive },
+];
+
+const bottomLinks = [
   { to: "/imports", label: "Import", icon: Upload },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
   const { user, logout } = useAuth();
-  const visibleLinks = user?.is_admin
-    ? [...links, { to: "/users", label: "Users", icon: Users }]
-    : links;
+  const visibleTopLinks = user?.is_admin
+    ? [...topLinks, { to: "/users", label: "Users", icon: Users }]
+    : topLinks;
 
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-slate-50">
@@ -37,24 +40,46 @@ export function Sidebar() {
         <Archive className="mr-2 h-6 w-6 text-slate-700" />
         <span className="text-lg font-bold text-slate-900">Archivist</span>
       </div>
-      <nav className="flex-1 space-y-1 p-3">
-        {visibleLinks.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              }`
-            }
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </NavLink>
-        ))}
+      <nav className="flex h-full flex-1 flex-col p-3">
+        <div className="space-y-1">
+          {visibleTopLinks.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`
+              }
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+
+        <div className="mt-auto space-y-1">
+          {bottomLinks.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`
+              }
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
       </nav>
       <div className="border-t p-3">
         {user && (
