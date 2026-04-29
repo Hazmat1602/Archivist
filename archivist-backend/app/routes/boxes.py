@@ -67,20 +67,19 @@ def _create_box_with_retry(db: Session, body: BoxCreate, user_id: int, max_retri
         except IntegrityError:
             db.rollback()
     raise HTTPException(409, "Failed to generate unique box code after retries")
-    
-    
-    def _sync_box_expiry_from_folders(db: Session, box_id: int) -> None:
-        box = db.get(Box, box_id)
-        if not box:
-            raise HTTPException(404, "Box not found")
-    
-        oldest_folder_expiry = (
-            db.query(func.min(Folder.expiry_date))
-            .filter(Folder.box_id == box_id, Folder.expiry_date.is_not(None))
-            .scalar()
-        )
-        box.expiry_date = oldest_folder_expiry
-        print("ALALALALALALL")
+
+
+def _sync_box_expiry_from_folders(db: Session, box_id: int) -> None:
+    box = db.get(Box, box_id)
+    if not box:
+        raise HTTPException(404, "Box not found")
+
+    oldest_folder_expiry = (
+        db.query(func.min(Folder.expiry_date))
+        .filter(Folder.box_id == box_id, Folder.expiry_date.is_not(None))
+        .scalar()
+    )
+    box.expiry_date = oldest_folder_expiry
 
 
 @router.get("/", response_model=list[BoxRead])
