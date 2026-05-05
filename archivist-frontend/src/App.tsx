@@ -6,6 +6,7 @@ import { Boxes } from "./pages/Boxes";
 import { Codes } from "./pages/Codes";
 import { Locations } from "./pages/Locations";
 import { Archives } from "./pages/Archives";
+import { Search } from "./pages/Search";
 import { Settings } from "./pages/Settings";
 import { Imports } from "./pages/Imports";
 import { Users } from "./pages/Users";
@@ -37,6 +38,7 @@ function ProtectedRoutes() {
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/folders" element={<Folders />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/boxes" element={<Boxes />} />
         <Route path="/codes" element={<Codes />} />
         <Route path="/locations" element={<Locations />} />
