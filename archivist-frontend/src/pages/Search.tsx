@@ -16,7 +16,7 @@ interface SearchResult {
   locationTrail?: string;
 }
 
-const PINNED_STORAGE_KEY = "archivist_pinned_results";
+const PINNED_STORAGE_KEY = "archivist_pinned_searches";
 
 export function Search() {
   const [query, setQuery] = useState("");
@@ -26,7 +26,7 @@ export function Search() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pinnedResultIds, setPinnedResultIds] = useState<string[]>([]);
+  const [pinnedSearches, setPinnedSearches] = useState<string[]>([]);
 
   useEffect(() => {
     const raw = localStorage.getItem(PINNED_STORAGE_KEY);
@@ -34,7 +34,7 @@ export function Search() {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          setPinnedResultIds(parsed.filter((v): v is string => typeof v === "string"));
+          setPinnedSearches(parsed.filter((v): v is string => typeof v === "string"));
         }
       } catch {
         localStorage.removeItem(PINNED_STORAGE_KEY);
@@ -43,11 +43,17 @@ export function Search() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(pinnedResultIds));
-  }, [pinnedResultIds]);
+    localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(pinnedSearches));
+  }, [pinnedSearches]);
 
   useEffect(() => {
-    Promise.all([api.listFolders(), api.listBoxes(), api.listCodes(), api.listLocations(), api.listUsers()])
+    Promise.all([
+      api.listFolders(),
+      api.listBoxes(),
+      api.listCodes(),
+      api.listLocations(),
+      api.listUsers(),
+    ])
       .then(([folderData, boxData, codeData, locationData, userData]) => {
         setFolders(folderData);
         setBoxes(boxData);
@@ -61,92 +67,73 @@ export function Search() {
   const boxMap = useMemo(() => new Map(boxes.map((box) => [box.id, box])), [boxes]);
   const locationMap = useMemo(() => new Map(locations.map((location) => [location.id, location])), [locations]);
 
-  const allResults = useMemo(() => {
-    const folderResults: SearchResult[] = folders.map((folder) => {
-      const box = folder.box_id ? boxMap.get(folder.box_id) : null;
-      const location = box?.location_id ? locationMap.get(box.location_id) : null;
-      return {
-        id: `folder-${folder.id}`,
-        type: "folder",
-        title: folder.name,
-        subtitle: `ID ${folder.retention_id} • Code ${folder.code}`,
-        locationTrail: `Folder ${folder.code} > Box ${box?.code ?? "Unassigned"} > ${location?.code ?? "Unassigned"}`,
-      };
-    });
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [] as SearchResult[];
 
-    const boxResults: SearchResult[] = boxes.map((box) => {
-      const location = box.location_id ? locationMap.get(box.location_id) : null;
-      return {
-        id: `box-${box.id}`,
-        type: "box",
-        title: box.name || box.code,
-        subtitle: `Box ${box.code}`,
-        locationTrail: `Box ${box.code} > ${location?.code ?? "Unassigned"}`,
-      };
-    });
+    const folderResults: SearchResult[] = folders
+      .filter((folder) =>
+        [folder.retention_id, folder.code, folder.name].some((value) => value?.toLowerCase().includes(q)),
+      )
+      .map((folder) => {
+        const box = folder.box_id ? boxMap.get(folder.box_id) : null;
+        const location = box?.location_id ? locationMap.get(box.location_id) : null;
+        const trail = `${folder.retention_id} > ${box?.code ?? "Unassigned"} > ${location?.code ?? "Unassigned"}`;
+        return {
+          id: `folder-${folder.id}`,
+          type: "folder",
+          title: folder.name,
+          subtitle: `ID ${folder.retention_id} • Code ${folder.code} • Expiry ${folder.expiry_date}`,
+          locationTrail: trail,
+        };
+      });
 
-    const codeResults: SearchResult[] = codes.map((code) => ({
-      id: `code-${code.id}`,
-      type: "code",
-      title: code.code,
-      subtitle: code.name,
-    }));
+    const boxResults: SearchResult[] = boxes
+      .filter((box) => [box.code, box.name].some((value) => value?.toLowerCase().includes(q)))
+      .map((box) => {
+        const location = box.location_id ? locationMap.get(box.location_id) : null;
+        return {
+          id: `box-${box.id}`,
+          type: "box",
+          title: box.name || box.code,
+          subtitle: `Box ${box.code} • Expiry ${box.expiry_date}`,
+          locationTrail: `${box.code} > ${location?.code ?? "Unassigned"}`,
+        };
+      });
 
-    const locationResults: SearchResult[] = locations.map((location) => ({
-      id: `location-${location.id}`,
-      type: "location",
-      title: location.code,
-      subtitle: location.description,
-    }));
+    const codeResults: SearchResult[] = codes
+      .filter((code) => [code.code, code.name, code.code_description].some((value) => value?.toLowerCase().includes(q)))
+      .map((code) => ({
+        id: `code-${code.id}`,
+        type: "code",
+        title: code.code,
+        subtitle: code.name,
+      }));
 
-    const userResults: SearchResult[] = users.map((user) => ({
-      id: `user-${user.id}`,
-      type: "user",
-      title: user.full_name || user.username,
-      subtitle: `${user.username} • ${user.email}`,
-    }));
+    const locationResults: SearchResult[] = locations
+      .filter((location) => [location.code, location.description].some((value) => value?.toLowerCase().includes(q)))
+      .map((location) => ({
+        id: `location-${location.id}`,
+        type: "location",
+        title: location.code,
+        subtitle: location.description,
+      }));
+
+    const userResults: SearchResult[] = users
+      .filter((user) => [user.username, user.email, user.full_name].some((value) => value?.toLowerCase().includes(q)))
+      .map((user) => ({
+        id: `user-${user.id}`,
+        type: "user",
+        title: user.full_name || user.username,
+        subtitle: `${user.username} • ${user.email}`,
+      }));
 
     return [...folderResults, ...boxResults, ...codeResults, ...locationResults, ...userResults];
-  }, [folders, boxes, codes, locations, users, boxMap, locationMap]);
+  }, [query, folders, boxes, codes, locations, users, boxMap, locationMap]);
 
-  const resultMap = useMemo(() => new Map(allResults.map((result) => [result.id, result])), [allResults]);
-
-  const pinnedResults = useMemo(
-    () => pinnedResultIds.map((id) => resultMap.get(id)).filter((result): result is SearchResult => !!result),
-    [pinnedResultIds, resultMap],
-  );
-
-  const filteredResults = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const candidates = allResults.filter((result) => !pinnedResultIds.includes(result.id));
-    if (!q) return candidates;
-    return candidates.filter((result) =>
-      [result.title, result.subtitle, result.locationTrail, result.type].some((value) => value?.toLowerCase().includes(q)),
-    );
-  }, [allResults, pinnedResultIds, query]);
-
-  const togglePinnedResult = (resultId: string) => {
-    setPinnedResultIds((current) =>
-      current.includes(resultId) ? current.filter((entry) => entry !== resultId) : [resultId, ...current].slice(0, 24),
-    );
-  };
-
-  const renderResult = (result: SearchResult) => {
-    const isPinned = pinnedResultIds.includes(result.id);
-    return (
-      <div key={result.id} className="rounded-md border border-slate-200 p-3">
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <p className="font-medium text-slate-900">{result.title}</p>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="capitalize">{result.type}</Badge>
-            <Button variant={isPinned ? "secondary" : "ghost"} size="icon" onClick={() => togglePinnedResult(result.id)}>
-              {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-        <p className="text-sm text-slate-600">{result.subtitle}</p>
-        {result.locationTrail && <p className="mt-1 text-xs text-slate-500">{result.locationTrail}</p>}
-      </div>
+  const togglePinnedSearch = (value: string) => {
+    setPinnedSearches((current) =>
+      current.includes(value) ? current.filter((entry) => entry !== value) : [value, ...current].slice(0, 12),
     );
   };
 
@@ -164,22 +151,48 @@ export function Search() {
           <CardTitle className="flex items-center gap-2"><SearchIcon className="h-5 w-5" /> Global Search</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input
-            placeholder="Search by folder, box, code, location, or user"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Search by folder, box, code, location, or user"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <Button
+              variant={pinnedSearches.includes(query.trim()) ? "secondary" : "outline"}
+              onClick={() => query.trim() && togglePinnedSearch(query.trim())}
+              disabled={!query.trim()}
+            >
+              {pinnedSearches.includes(query.trim()) ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+            </Button>
+          </div>
 
-          {pinnedResults.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pinned results</p>
-              {pinnedResults.map(renderResult)}
+          {pinnedSearches.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {pinnedSearches.map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  onClick={() => setQuery(term)}
+                  className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                >
+                  📌 {term}
+                </button>
+              ))}
             </div>
           )}
 
           <div className="space-y-2">
-            {query.trim() && filteredResults.length === 0 && <p className="text-sm text-slate-500">No matches found.</p>}
-            {filteredResults.map(renderResult)}
+            {query.trim() && results.length === 0 && <p className="text-sm text-slate-500">No matches found.</p>}
+            {results.map((result) => (
+              <div key={result.id} className="rounded-md border border-slate-200 p-3">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <p className="font-medium text-slate-900">{result.title}</p>
+                  <Badge variant="secondary" className="capitalize">{result.type}</Badge>
+                </div>
+                <p className="text-sm text-slate-600">{result.subtitle}</p>
+                {result.locationTrail && <p className="mt-1 text-xs text-slate-500">{result.locationTrail}</p>}
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
