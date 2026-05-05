@@ -78,12 +78,12 @@ export function Search() {
       .map((folder) => {
         const box = folder.box_id ? boxMap.get(folder.box_id) : null;
         const location = box?.location_id ? locationMap.get(box.location_id) : null;
-        const trail = `Folder ${folder.code} > Box ${box?.code ?? "Unassigned"} > ${location?.code ?? "Unassigned"}`;
+        const trail = `${folder.retention_id} > ${box?.code ?? "Unassigned"} > ${location?.code ?? "Unassigned"}`;
         return {
           id: `folder-${folder.id}`,
           type: "folder",
           title: folder.name,
-          subtitle: `ID ${folder.retention_id} • Code ${folder.code}`,
+          subtitle: `ID ${folder.retention_id} • Code ${folder.code} • Expiry ${folder.expiry_date}`,
           locationTrail: trail,
         };
       });
@@ -96,8 +96,8 @@ export function Search() {
           id: `box-${box.id}`,
           type: "box",
           title: box.name || box.code,
-          subtitle: `Box ${box.code}`,
-          locationTrail: `Box ${box.code} > ${location?.code ?? "Unassigned"}`,
+          subtitle: `Box ${box.code} • Expiry ${box.expiry_date}`,
+          locationTrail: `${box.code} > ${location?.code ?? "Unassigned"}`,
         };
       });
 
