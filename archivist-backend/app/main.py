@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
+from sqlalchemy.schema import CreateColumn
 
 from app.auth import hash_password
 from app.database import Base, engine
@@ -32,29 +33,31 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+
+def sync_table_structure() -> None:
+    """Create missing tables and append missing columns without dropping data."""
+    inspector = inspect(engine)
+
+    for table in Base.metadata.sorted_tables:
+        table.create(bind=engine, checkfirst=True)
+
+        existing_columns = {column["name"] for column in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name in existing_columns:
+                continue
+
+            compiled_column = CreateColumn(column).compile(dialect=engine.dialect)
+            safe_table_name = table.name.replace("]", "]]" )
+            with engine.begin() as conn:
+                conn.execute(
+                    text(f"ALTER TABLE [{safe_table_name}] ADD {compiled_column}")
+                    )
+
 @app.on_event("startup")
 def on_startup():
     try:
-        Folder.__table__.create(bind=engine, checkfirst=True)
-        Box.__table__.create(bind=engine, checkfirst=True)
-        Location.__table__.create(bind=engine, checkfirst=True)
-        RetentionCode.__table__.create(bind=engine, checkfirst=True)
-        Category.__table__.create(bind=engine, checkfirst=True)
-        Location.__table__.create(bind=engine, checkfirst=True)
-        Archive.__table__.create(bind=engine, checkfirst=True)
-        User.__table__.create(bind=engine, checkfirst=True)
-
-        inspector = inspect(engine)
-        user_columns = {column["name"] for column in inspector.get_columns("Users")}
-        if "password_temporary" not in user_columns:
-            with engine.begin() as conn:
-                conn.execute(
-                    text(
-                        "ALTER TABLE [Users] "
-                        "ADD [password_temporary] BIT NOT NULL CONSTRAINT [DF_Users_password_temporary] DEFAULT 0"
-                    )
-                )
-
+        sync_table_structure()
+        
         with Session(engine) as session:
             admin_user = session.query(User).filter(User.username == "admin").first()
             if not admin_user:

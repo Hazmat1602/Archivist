@@ -119,7 +119,7 @@ export function Folders() {
     soonThreshold.setDate(soonThreshold.getDate() + EXPIRING_SOON_DAYS);
     return new Date(expiry) <= soonThreshold;
   };
-
+  
   const columns = useMemo<ExcelColumnDef<Folder>[]>(() => [
     {
       accessorKey: "retention_id",

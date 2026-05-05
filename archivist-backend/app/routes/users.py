@@ -31,7 +31,7 @@ def list_users(
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _current_user: User = Depends(get_current_user),
 ):
     return db.query(User).order_by(User.id).offset(offset).limit(limit).all()
 

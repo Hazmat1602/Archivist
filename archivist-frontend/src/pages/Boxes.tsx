@@ -331,7 +331,7 @@ export function Boxes() {
               }
             }}
           >
-            <Printer className="mr-2 h-4 w-4" /> Print Labels
+            <Printer className="mr-2 h-4 w-4" /> Print All Labels
           </Button>
           <Button onClick={() => { setForm({ name: "", location_id: "" }); setDialogOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" /> New Box

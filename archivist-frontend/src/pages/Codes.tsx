@@ -140,7 +140,7 @@ export function Codes() {
       accessorKey: "code_description",
       header: "Description",
       cell: ({ row }) => (
-        <span className="max-w-xs truncate text-sm text-slate-500">{row.original.code_description}</span>
+        <span className="text-sm text-slate-500 line-clamp-3">{row.original.code_description}</span>
       ),
       enableSorting: true,
       enableColumnFilter: true,

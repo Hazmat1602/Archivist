@@ -1,4 +1,5 @@
 from datetime import date
+import re
 from io import BytesIO
 from pathlib import Path
 
@@ -289,10 +290,17 @@ async def import_boxes(
         box_name = str(box_name).strip()
         created_date = date.today()
 
-        retention_ids_raw = row.get("Retention IDs", "")
+        retention_ids_raw = row.get("Retention IDs")
+        if pd.isna(retention_ids_raw) or not str(retention_ids_raw).strip():
+            retention_ids_raw = row.get("Folders", "")
+
         retention_ids: list[str] = []
         if not pd.isna(retention_ids_raw) and str(retention_ids_raw).strip():
-            retention_ids = [rid.strip() for rid in str(retention_ids_raw).split(",") if rid.strip()]
+            retention_ids = [
+                rid.strip()
+                for rid in re.split(r"[,;\n]", str(retention_ids_raw))
+                if rid.strip()
+            ]
 
         existing = db.query(Box).filter(Box.name == box_name).first()
         if existing:

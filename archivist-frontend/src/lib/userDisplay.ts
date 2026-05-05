@@ -10,13 +10,13 @@ export function useUserDisplayMap() {
 
   useEffect(() => {
     api.listUsers(0, 1000)
-      .then((users) => {
-        const entries = users.map((user) => [user.id, formatUser(user)] as const);
-        setUserMap(Object.fromEntries(entries));
-      })
-      .catch(() => {
-        setUserMap({});
-      });
+        .then((users) => {
+          const entries = users.map((user) => [user.id, formatUser(user)] as const);
+          setUserMap(Object.fromEntries(entries));
+        })
+        .catch(() => {
+          setUserMap({});
+        });
   }, []);
 
   const getUserLabel = (userId: number | null | undefined, fallbackPrefix = "User") => {

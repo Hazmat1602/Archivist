@@ -11,11 +11,13 @@ import {
   LogOut,
   User,
   Users,
+  Search,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 const topLinks = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/search", label: "Search", icon: Search },
   { to: "/folders", label: "Folders", icon: FolderOpen },
   { to: "/boxes", label: "Boxes", icon: Box },
   { to: "/codes", label: "Retention Codes", icon: FileCode2 },
