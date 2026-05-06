@@ -2,100 +2,96 @@
 
 Installs the Archivist backend API on the same server that hosts the SQL Server database.
 
-## Prerequisites
+## Building the Installer (.exe)
 
-| Requirement | Version | Notes |
-|-------------|---------|-------|
-| Python | 3.11+ | [python.org/downloads](https://www.python.org/downloads/) |
-| ODBC Driver 18 for SQL Server | Latest | [Download](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server) |
-| SQL Server | 2019+ | Must be running and accessible |
+The primary installer is a standalone `.exe` built with [Inno Setup](https://jrsoftware.org/isinfo.php). It bundles an embedded Python distribution, NSSM (for Windows service management), and the backend source code — so the target server needs no pre-installed dependencies.
 
-## Windows
+### Prerequisites (Build Machine Only)
 
-### Quick Install
+| Requirement | Purpose |
+|-------------|---------|
+| [Inno Setup 6](https://jrsoftware.org/isdl.php) | Compiles the `.iss` script into an `.exe` installer |
+| PowerShell 5.1+ | Runs the build script |
+| Internet access | Downloads embedded Python and NSSM during build |
 
-Run the installer from an **elevated** (Administrator) PowerShell prompt:
+### Build Steps
+
+1. Open PowerShell on a **Windows** machine with Inno Setup installed
+2. Run the build script:
 
 ```powershell
-.\install.ps1
+cd installers\backend
+.\build_installer.ps1
 ```
 
-The installer will:
-1. Verify Python and ODBC driver are available
-2. Prompt for SQL Server connection details
-3. Copy files and install dependencies in a virtual environment
-4. Generate a `.env` configuration file
-5. Test the database connection
-6. Install and start a Windows service (via NSSM)
+3. The compiled installer will be at `installers\backend\output\ArchivistBackendSetup.exe`
 
-### Options
+#### Build Options
 
 ```powershell
-# Custom install directory
-.\install.ps1 -InstallDir "D:\Services\Archivist"
+# Use a specific Python version
+.\build_installer.ps1 -PythonVersion "3.12.7"
 
-# Custom API port
-.\install.ps1 -Port 9000
-
-# Skip Windows service installation (run manually)
-.\install.ps1 -SkipServiceInstall
+# Use a specific NSSM version
+.\build_installer.ps1 -NssmVersion "2.24"
 ```
 
-### Running Manually
+## Running the Installer
 
-If you chose to skip service installation:
+Transfer `ArchivistBackendSetup.exe` to the target server and run it. The installer wizard will:
+
+1. **Select install directory** — default: `C:\Program Files\Archivist\Backend`
+2. **Database Configuration** — SQL Server hostname, database name, username, and password
+3. **Advanced Database Settings** — ODBC driver name, encryption, and certificate trust (defaults work for most setups)
+4. **Service Configuration** — API port (default 8000) and session timeout
+5. **Install** — copies files, installs Python dependencies, registers the Windows service, opens the firewall port, and starts the service
+
+### What the Installer Does
+
+- Copies the backend app and an embedded Python runtime to the install directory
+- Generates a `.env` configuration file from the wizard inputs
+- Installs all Python dependencies via pip (offline-capable if packages are pre-cached)
+- Registers `ArchivistBackend` as a Windows service using NSSM
+- Configures automatic service restart and log rotation
+- Adds a Windows Firewall inbound rule for the API port
+
+### After Installation
+
+- **API URL**: `http://localhost:8000` (or the port you chose)
+- **API docs**: `http://localhost:8000/docs`
+- **Logs**: `<install dir>\logs\`
+
+Manage the service:
 
 ```powershell
-cd C:\Archivist\Backend
-.venv\Scripts\uvicorn.exe app.main:app --host 0.0.0.0 --port 8000
+# Status
+nssm status ArchivistBackend
+
+# Restart
+nssm restart ArchivistBackend
+
+# Stop
+nssm stop ArchivistBackend
 ```
 
 ### Uninstall
 
-```powershell
-.\uninstall.ps1                     # Stop service, keep files
-.\uninstall.ps1 -RemoveFiles        # Stop service and delete all files
-```
+Use **Add/Remove Programs** in Windows Settings. The uninstaller stops and removes the Windows service and firewall rule automatically.
 
-## Linux
+## Alternative: Script-Based Install
 
-### Quick Install
+For Linux servers or manual Windows installs without the .exe, standalone scripts are provided:
 
-```bash
-chmod +x install.sh
-sudo ./install.sh
-```
-
-Or specify a custom install directory:
-
-```bash
-sudo ./install.sh /opt/archivist/backend
-```
-
-Set a custom port via environment variable:
-
-```bash
-ARCHIVIST_PORT=9000 sudo ./install.sh
-```
-
-### Managing the Service
-
-```bash
-sudo systemctl status archivist-backend
-sudo systemctl restart archivist-backend
-sudo journalctl -u archivist-backend -f
-```
-
-### Uninstall
-
-```bash
-chmod +x uninstall.sh
-sudo ./uninstall.sh
-```
+| Script | Platform | Description |
+|--------|----------|-------------|
+| `install.ps1` | Windows | Interactive PowerShell installer |
+| `install.sh` | Linux | Interactive Bash installer (uses systemd) |
+| `uninstall.ps1` | Windows | Removes service and optionally files |
+| `uninstall.sh` | Linux | Removes systemd service and optionally files |
 
 ## Configuration
 
-After installation, the configuration lives in `.env` inside the install directory. Edit this file to change database credentials, JWT settings, or other options.
+After installation, the configuration lives in `.env` inside the install directory. Edit this file to change database credentials, JWT settings, or other options:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -109,18 +105,12 @@ After installation, the configuration lives in `.env` inside the install directo
 | `JWT_SECRET_KEY` | *(auto-generated)* | JWT signing secret |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `480` | Session timeout |
 
-After editing, restart the service for changes to take effect.
+Restart the service after editing `.env`.
 
 ## Firewall
 
-Ensure the API port (default `8000`) is open for incoming connections from client machines:
+The installer automatically creates a firewall rule. If you need to add it manually:
 
-**Windows:**
 ```powershell
 New-NetFirewallRule -DisplayName "Archivist API" -Direction Inbound -Port 8000 -Protocol TCP -Action Allow
-```
-
-**Linux:**
-```bash
-sudo ufw allow 8000/tcp
 ```

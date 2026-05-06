@@ -77,12 +77,20 @@ VITE_API_URL=http://localhost:8000
 
 For production deployment, use the provided installers:
 
-### Backend Installer
+### Backend Installer (.exe)
 
-Install the backend on the same server as the SQL Server database. The installer configures the database connection and registers the API as a system service.
+Install the backend on the same server as the SQL Server database. The `.exe` installer provides a GUI wizard that configures the database connection, installs dependencies, and registers the API as a Windows service.
 
-- **Windows**: `installers\backend\install.ps1` (PowerShell, run as Administrator)
-- **Linux**: `installers/backend/install.sh` (Bash, run with sudo)
+**Building the installer:**
+
+```powershell
+cd installers\backend
+.\build_installer.ps1       # Requires Inno Setup 6 on the build machine
+```
+
+This produces `ArchivistBackendSetup.exe` — a self-contained installer that bundles embedded Python, NSSM, and all backend code. No prerequisites needed on the target server.
+
+For Linux servers, a Bash install script (`install.sh`) is also provided.
 
 See [`installers/backend/README.md`](installers/backend/README.md) for full details.
 
