@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { getApiBase } from "./config";
 
 function getAuthHeaders(includeJsonContentType = true): Record<string, string> {
   const token = localStorage.getItem("token");
@@ -14,7 +14,7 @@ function getAuthHeaders(includeJsonContentType = true): Record<string, string> {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const isFormData = options?.body instanceof FormData;
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     headers: { ...getAuthHeaders(!isFormData), ...options?.headers },
     ...options,
   });
@@ -229,7 +229,7 @@ export const api = {
 
   // Labels (downloads .docx files)
   downloadFolderLabels: async (folderIds?: number[]) => {
-    const res = await fetch(`${API_BASE}/api/labels/folders`, {
+    const res = await fetch(`${getApiBase()}/api/labels/folders`, {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({ folder_ids: folderIds ?? null }),
@@ -245,7 +245,7 @@ export const api = {
   },
 
   downloadBoxLabels: async (boxIds?: number[]) => {
-    const res = await fetch(`${API_BASE}/api/labels/boxes`, {
+    const res = await fetch(`${getApiBase()}/api/labels/boxes`, {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({ box_ids: boxIds ?? null }),

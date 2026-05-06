@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/layout/Layout";
 import { Dashboard } from "./pages/Dashboard";
@@ -12,7 +13,9 @@ import { Imports } from "./pages/Imports";
 import { Users } from "./pages/Users";
 import { Login } from "./pages/Login";
 import { ChangePassword } from "./pages/ChangePassword";
+import { ServerSetup } from "./pages/ServerSetup";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { isServerConfigured } from "./lib/config";
 import "./App.css";
 
 function ProtectedRoutes() {
@@ -72,6 +75,12 @@ function AppRoutes() {
 }
 
 function App() {
+  const [serverReady, setServerReady] = useState(isServerConfigured());
+
+  if (!serverReady) {
+    return <ServerSetup onComplete={() => setServerReady(true)} />;
+  }
+
   return (
     <BrowserRouter>
       <AuthProvider>

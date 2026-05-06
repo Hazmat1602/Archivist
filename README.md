@@ -73,6 +73,37 @@ Create a `.env` file in `archivist-frontend/`:
 VITE_API_URL=http://localhost:8000
 ```
 
+## Deployment / Installers
+
+For production deployment, use the provided installers:
+
+### Backend Installer
+
+Install the backend on the same server as the SQL Server database. The installer configures the database connection and registers the API as a system service.
+
+- **Windows**: `installers\backend\install.ps1` (PowerShell, run as Administrator)
+- **Linux**: `installers/backend/install.sh` (Bash, run with sudo)
+
+See [`installers/backend/README.md`](installers/backend/README.md) for full details.
+
+### Frontend Installer (Electron Desktop App)
+
+The frontend can be packaged as a standalone desktop application using Electron. End users install the app and configure the server connection on first launch.
+
+```bash
+cd archivist-frontend
+npm install
+npm run electron:build    # Build installer (NSIS on Windows, AppImage/deb on Linux, dmg on macOS)
+```
+
+The built installer will be in `archivist-frontend/release/`.
+
+For development with Electron:
+
+```bash
+npm run electron:dev      # Run Electron with Vite hot-reload
+```
+
 ## Developer Experience Improvements
 
 This repository includes a root `Makefile` with common tasks so you do not need to remember separate backend/frontend commands.
