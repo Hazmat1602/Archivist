@@ -71,12 +71,16 @@ Invoke-WebRequest -Uri $PyZipUrl -OutFile $PyZipFile -UseBasicParsing
 Expand-Archive -Path $PyZipFile -DestinationPath $PyDir -Force
 Remove-Item $PyZipFile -Force
 
-# Enable pip in embedded Python by uncommenting import site in python3xx._pth
+# Enable pip in embedded Python by uncommenting import site and adding
+# Lib\site-packages to the python3xx._pth file so pip-installed packages
+# (uvicorn, fastapi, etc.) are found on the import path.
 $PthFile = Get-ChildItem $PyDir -Filter "python*._pth" | Select-Object -First 1
 if ($PthFile) {
     $content = Get-Content $PthFile.FullName
     $content = $content -replace "^#import site", "import site"
     Set-Content $PthFile.FullName $content
+    # Add Lib\site-packages explicitly for embedded Python
+    Add-Content $PthFile.FullName "Lib\site-packages"
 }
 Write-Ok "Python embedded extracted to $PyDir"
 
