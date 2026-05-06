@@ -8,9 +8,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Database, Server, Info, User, Wrench } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "@/lib/api";
+import { getApiBase, isElectron, saveServerUrl, setApiBase } from "@/lib/config";
 
 export function Settings() {
-  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  const [apiUrl, setApiUrl] = useState(getApiBase());
+  const [editingUrl, setEditingUrl] = useState(false);
+  const [urlInput, setUrlInput] = useState(apiUrl);
   const { user } = useAuth();
 
   const [status, setStatus] = useState<"checking" | "connected" | "error">("checking");
@@ -37,6 +40,15 @@ export function Settings() {
 
     checkConnection();
   }, [apiUrl]);
+
+  const handleSaveUrl = async () => {
+    const trimmed = urlInput.replace(/\/+$/, "");
+    await saveServerUrl(trimmed);
+    setApiBase(trimmed);
+    setApiUrl(trimmed);
+    setEditingUrl(false);
+    setStatus("checking");
+  };
 
   const handleClearDatabase = async () => {
     setIsClearing(true);
@@ -111,7 +123,24 @@ export function Settings() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">API URL</span>
-              <Badge variant="outline" className="font-mono text-xs">{apiUrl}</Badge>
+              {editingUrl ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="h-7 w-56 font-mono text-xs"
+                  />
+                  <Button size="sm" variant="outline" onClick={() => setEditingUrl(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleSaveUrl}>Save</Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-xs">{apiUrl}</Badge>
+                  {isElectron() && (
+                    <Button size="sm" variant="ghost" onClick={() => { setUrlInput(apiUrl); setEditingUrl(true); }}>Change</Button>
+                  )}
+                </div>
+              )}
             </div>
             <Separator />
             <div className="flex items-center justify-between">

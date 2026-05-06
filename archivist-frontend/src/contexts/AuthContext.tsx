@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { getApiBase } from "@/lib/config";
 
 export interface User {
   id: number;
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
-    fetch(`${API_BASE}/api/auth/me`, {
+    fetch(`${getApiBase()}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, logout]);
 
   const login = async (username: string, password: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
+    const res = await fetch(`${getApiBase()}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (username: string, email: string, password: string, fullName?: string) => {
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
+    const res = await fetch(`${getApiBase()}/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password, full_name: fullName || null }),
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const changePassword = async (currentPassword: string, newPassword: string) => {
     const currentToken = localStorage.getItem("token");
     if (!currentToken) throw new Error("You are not logged in");
-    const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+    const res = await fetch(`${getApiBase()}/api/auth/change-password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

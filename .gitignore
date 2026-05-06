@@ -23,6 +23,10 @@ dist/
 *.swp
 *.swo
 
+# Installer build artifacts
+installers/backend/build/
+installers/backend/output/
+
 # OS
 .DS_Store
 Thumbs.db
