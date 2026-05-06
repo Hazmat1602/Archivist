@@ -12,8 +12,8 @@ dist
 dist-ssr
 *.local
 
-# Electron build output
-release/
+# Tauri build output
+src-tauri/target/
 
 # Editor directories and files
 .vscode/*

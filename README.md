@@ -94,22 +94,24 @@ For Linux servers, a Bash install script (`install.sh`) is also provided.
 
 See [`installers/backend/README.md`](installers/backend/README.md) for full details.
 
-### Frontend Installer (Electron Desktop App)
+### Frontend Installer (Tauri Desktop App)
 
-The frontend can be packaged as a standalone desktop application using Electron. End users install the app and configure the server connection on first launch.
+The frontend can be packaged as a native desktop application using [Tauri](https://tauri.app). End users install the app and configure the server connection on first launch.
+
+**Prerequisites (build machine):** [Rust](https://rustup.rs/) and platform build tools ([see Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)).
 
 ```bash
 cd archivist-frontend
 npm install
-npm run electron:build    # Build installer (NSIS on Windows, AppImage/deb on Linux, dmg on macOS)
+npm run tauri build       # Build installer (NSIS .exe on Windows, AppImage/deb on Linux, dmg on macOS)
 ```
 
-The built installer will be in `archivist-frontend/release/`.
+The built installer will be in `archivist-frontend/src-tauri/target/release/bundle/`.
 
-For development with Electron:
+For development with Tauri:
 
 ```bash
-npm run electron:dev      # Run Electron with Vite hot-reload
+npm run tauri dev         # Run Tauri with Vite hot-reload
 ```
 
 ## Developer Experience Improvements

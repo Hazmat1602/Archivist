@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Database, Server, Info, User, Wrench } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "@/lib/api";
-import { getApiBase, isElectron, saveServerUrl, setApiBase } from "@/lib/config";
+import { getApiBase, isTauri, saveServerUrl, setApiBase } from "@/lib/config";
 
 export function Settings() {
   const [apiUrl, setApiUrl] = useState(getApiBase());
@@ -136,7 +136,7 @@ export function Settings() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="font-mono text-xs">{apiUrl}</Badge>
-                  {isElectron() && (
+                  {isTauri() && (
                     <Button size="sm" variant="ghost" onClick={() => { setUrlInput(apiUrl); setEditingUrl(true); }}>Change</Button>
                   )}
                 </div>
