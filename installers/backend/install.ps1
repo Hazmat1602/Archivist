@@ -5,7 +5,7 @@
 .DESCRIPTION
     Installs the Archivist backend API service on a Windows server alongside
     SQL Server. Checks prerequisites, configures the database connection, and
-    optionally registers a Windows service via NSSM.
+    optionally registers a Windows service via WinSW.
 #>
 
 param(
@@ -18,7 +18,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $ServiceName = "ArchivistBackend"
-$NssmUrl = "https://nssm.cc/release/nssm-2.24.zip"
+$WinswUrl = "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe"
 
 # --- Helpers ---------------------------------------------------------------
 
@@ -209,56 +209,58 @@ if ($LASTEXITCODE -ne 0) {
 if (-not $SkipServiceInstall) {
     Write-Step "Installing Windows service"
 
-    # Download NSSM if not present
-    $NssmDir = Join-Path $InstallDir "nssm"
-    $NssmExe = Join-Path $NssmDir "nssm.exe"
+    # Download WinSW if not present
+    $ServiceDir = Join-Path $InstallDir "service"
+    $ServiceExe = Join-Path $ServiceDir "ArchivistBackend.exe"
 
-    if (-not (Test-Path $NssmExe)) {
-        Write-Ok "Downloading NSSM..."
-        $ZipFile = Join-Path $env:TEMP "nssm.zip"
+    if (-not (Test-Path $ServiceExe)) {
+        Write-Ok "Downloading WinSW..."
+        if (-not (Test-Path $ServiceDir)) { New-Item -ItemType Directory -Path $ServiceDir -Force | Out-Null }
         try {
-            Invoke-WebRequest -Uri $NssmUrl -OutFile $ZipFile -UseBasicParsing
-            Expand-Archive -Path $ZipFile -DestinationPath $env:TEMP -Force
-            if (-not (Test-Path $NssmDir)) { New-Item -ItemType Directory -Path $NssmDir -Force | Out-Null }
-            $arch = if ([Environment]::Is64BitOperatingSystem) { "win64" } else { "win32" }
-            Copy-Item "$env:TEMP\nssm-2.24\$arch\nssm.exe" $NssmExe
-            Remove-Item $ZipFile -Force
-            Remove-Item "$env:TEMP\nssm-2.24" -Recurse -Force
+            Invoke-WebRequest -Uri $WinswUrl -OutFile $ServiceExe -UseBasicParsing
         } catch {
-            Write-Warn "Failed to download NSSM. Service installation skipped."
-            Write-Host "    You can download NSSM manually from https://nssm.cc" -ForegroundColor Yellow
+            Write-Warn "Failed to download WinSW. Service installation skipped."
+            Write-Host "    You can download WinSW manually from https://github.com/winsw/winsw/releases" -ForegroundColor Yellow
             $SkipServiceInstall = $true
         }
     }
 
     if (-not $SkipServiceInstall) {
+        # Write WinSW XML configuration
+        $UvicornExe = Join-Path $VenvDir "Scripts\uvicorn.exe"
+        $LogDir = Join-Path $InstallDir "logs"
+        if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+
+        $XmlContent = @"
+<service>
+  <id>$ServiceName</id>
+  <name>Archivist Backend API</name>
+  <description>Archivist records management backend API service</description>
+  <executable>$UvicornExe</executable>
+  <arguments>app.main:app --host 0.0.0.0 --port $Port</arguments>
+  <workingdirectory>$InstallDir</workingdirectory>
+  <logpath>$LogDir</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>1048576</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+  <startmode>Automatic</startmode>
+</service>
+"@
+        Set-Content -Path (Join-Path $ServiceDir "ArchivistBackend.xml") -Value $XmlContent -Encoding UTF8
+
         # Remove existing service if present
         $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
         if ($existing) {
             Write-Ok "Stopping existing service..."
-            & $NssmExe stop $ServiceName 2>$null
-            & $NssmExe remove $ServiceName confirm 2>$null
+            & $ServiceExe stop 2>$null
+            & $ServiceExe uninstall 2>$null
         }
 
-        # Install service
-        $UvicornExe = Join-Path $VenvDir "Scripts\uvicorn.exe"
-        & $NssmExe install $ServiceName $UvicornExe "app.main:app --host 0.0.0.0 --port $Port"
-        & $NssmExe set $ServiceName AppDirectory $InstallDir
-        & $NssmExe set $ServiceName DisplayName "Archivist Backend API"
-        & $NssmExe set $ServiceName Description "Archivist records management backend API service"
-        & $NssmExe set $ServiceName Start SERVICE_AUTO_START
-
-        # Set up log files
-        $LogDir = Join-Path $InstallDir "logs"
-        if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
-        & $NssmExe set $ServiceName AppStdout (Join-Path $LogDir "stdout.log")
-        & $NssmExe set $ServiceName AppStderr (Join-Path $LogDir "stderr.log")
-        & $NssmExe set $ServiceName AppRotateFiles 1
-        & $NssmExe set $ServiceName AppRotateBytes 1048576
-
-        # Start the service
+        # Install and start service
+        & $ServiceExe install
         Write-Ok "Starting service..."
-        & $NssmExe start $ServiceName
+        & $ServiceExe start
 
         $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
         if ($svc -and $svc.Status -eq "Running") {

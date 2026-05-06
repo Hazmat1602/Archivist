@@ -23,7 +23,6 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 ArchitecturesInstallMode=x64compatible
-SetupIconFile=..\..\archivist-frontend\public\vite.svg
 UninstallDisplayName={#AppName}
 CloseApplications=yes
 
@@ -39,18 +38,18 @@ Source: "build\poetry.lock"; DestDir: "{app}"; Flags: ignoreversion
 ; Embedded Python distribution
 Source: "build\python\*"; DestDir: "{app}\python"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; NSSM for service management
-Source: "build\nssm\nssm.exe"; DestDir: "{app}\nssm"; Flags: ignoreversion
+; WinSW service wrapper (pre-renamed to ArchivistBackend.exe)
+Source: "build\winsw\ArchivistBackend.exe"; DestDir: "{app}\service"; Flags: ignoreversion
 
 ; Template .env.example for reference
-Source: "build\.env.example"; DestDir: "{app}"; Flags: ignoreversion
+Source: "build\.env.example"; DestDir: "{app}"; Flags: ignoreversion; Check: FileExists(ExpandConstant('{#SetupSetting("SourceDir")}\build\.env.example'))
 
 [Dirs]
 Name: "{app}\logs"
 
 [UninstallRun]
-Filename: "{app}\nssm\nssm.exe"; Parameters: "stop ArchivistBackend"; Flags: runhidden; RunOnceId: "StopService"
-Filename: "{app}\nssm\nssm.exe"; Parameters: "remove ArchivistBackend confirm"; Flags: runhidden; RunOnceId: "RemoveService"
+Filename: "{app}\service\ArchivistBackend.exe"; Parameters: "stop"; Flags: runhidden; RunOnceId: "StopService"
+Filename: "{app}\service\ArchivistBackend.exe"; Parameters: "uninstall"; Flags: runhidden; RunOnceId: "RemoveService"
 
 [Code]
 var
@@ -154,21 +153,28 @@ begin
   end;
 end;
 
+function FileExists(const FileName: String): Boolean;
+begin
+  Result := FileExists(FileName);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   EnvContent: String;
+  XmlContent: String;
   JwtSecret: String;
   Port: String;
   PythonExe: String;
-  NssmExe: String;
+  ServiceExe: String;
   ResultCode: Integer;
-  LogDir: String;
 begin
   if CurStep = ssPostInstall then
   begin
     { Generate random JWT secret }
     JwtSecret := GenerateRandomString(48);
     Port := ServicePage.Values[0];
+    PythonExe := ExpandConstant('{app}\python\python.exe');
+    ServiceExe := ExpandConstant('{app}\service\ArchivistBackend.exe');
 
     { Write .env configuration file }
     EnvContent :=
@@ -190,10 +196,24 @@ begin
 
     SaveStringToFile(ExpandConstant('{app}\.env'), EnvContent, False);
 
-    { Paths }
-    PythonExe := ExpandConstant('{app}\python\python.exe');
-    NssmExe := ExpandConstant('{app}\nssm\nssm.exe');
-    LogDir := ExpandConstant('{app}\logs');
+    { Write WinSW XML configuration file }
+    XmlContent :=
+      '<service>' + #13#10 +
+      '  <id>ArchivistBackend</id>' + #13#10 +
+      '  <name>Archivist Backend API</name>' + #13#10 +
+      '  <description>Archivist records management backend API</description>' + #13#10 +
+      '  <executable>' + PythonExe + '</executable>' + #13#10 +
+      '  <arguments>-m uvicorn app.main:app --host 0.0.0.0 --port ' + Port + '</arguments>' + #13#10 +
+      '  <workingdirectory>' + ExpandConstant('{app}') + '</workingdirectory>' + #13#10 +
+      '  <logpath>' + ExpandConstant('{app}\logs') + '</logpath>' + #13#10 +
+      '  <log mode="roll-by-size">' + #13#10 +
+      '    <sizeThreshold>1048576</sizeThreshold>' + #13#10 +
+      '    <keepFiles>5</keepFiles>' + #13#10 +
+      '  </log>' + #13#10 +
+      '  <startmode>Automatic</startmode>' + #13#10 +
+      '</service>' + #13#10;
+
+    SaveStringToFile(ExpandConstant('{app}\service\ArchivistBackend.xml'), XmlContent, False);
 
     { Install Python dependencies using pip }
     WizardForm.StatusLabel.Caption := 'Installing Python dependencies...';
@@ -201,39 +221,16 @@ begin
       '-m pip install --no-warn-script-location fastapi[standard] sqlalchemy pyodbc python-dateutil python-multipart "passlib[bcrypt]" "python-jose[cryptography]" python-dotenv argon2-cffi pandas openpyxl python-docx docxtpl uvicorn',
       ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-    { Stop existing service if present }
-    Exec(NssmExe, 'stop ArchivistBackend', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(NssmExe, 'remove ArchivistBackend confirm', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    { Stop and remove existing service if present }
+    Exec(ServiceExe, 'stop', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ServiceExe, 'uninstall', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-    { Install the Windows service }
+    { Install and start the Windows service }
     WizardForm.StatusLabel.Caption := 'Registering Windows service...';
-    Exec(NssmExe,
-      'install ArchivistBackend "' + PythonExe + '" "-m uvicorn app.main:app --host 0.0.0.0 --port ' + Port + '"',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ServiceExe, 'install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-    { Configure service }
-    Exec(NssmExe, 'set ArchivistBackend AppDirectory "' + ExpandConstant('{app}') + '"',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(NssmExe, 'set ArchivistBackend DisplayName "Archivist Backend API"',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(NssmExe, 'set ArchivistBackend Description "Archivist records management backend API"',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(NssmExe, 'set ArchivistBackend Start SERVICE_AUTO_START',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
-    { Configure log files }
-    Exec(NssmExe, 'set ArchivistBackend AppStdout "' + LogDir + '\stdout.log"',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(NssmExe, 'set ArchivistBackend AppStderr "' + LogDir + '\stderr.log"',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(NssmExe, 'set ArchivistBackend AppRotateFiles 1',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(NssmExe, 'set ArchivistBackend AppRotateBytes 1048576',
-      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
-    { Start the service }
     WizardForm.StatusLabel.Caption := 'Starting service...';
-    Exec(NssmExe, 'start ArchivistBackend', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ServiceExe, 'start', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     { Add firewall rule }
     Exec('netsh',

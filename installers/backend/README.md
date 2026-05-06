@@ -4,7 +4,7 @@ Installs the Archivist backend API on the same server that hosts the SQL Server 
 
 ## Building the Installer (.exe)
 
-The primary installer is a standalone `.exe` built with [Inno Setup](https://jrsoftware.org/isinfo.php). It bundles an embedded Python distribution, NSSM (for Windows service management), and the backend source code — so the target server needs no pre-installed dependencies.
+The primary installer is a standalone `.exe` built with [Inno Setup](https://jrsoftware.org/isinfo.php). It bundles an embedded Python distribution, [WinSW](https://github.com/winsw/winsw) (for Windows service management), and the backend source code — so the target server needs no pre-installed dependencies.
 
 ### Prerequisites (Build Machine Only)
 
@@ -12,7 +12,7 @@ The primary installer is a standalone `.exe` built with [Inno Setup](https://jrs
 |-------------|---------|
 | [Inno Setup 6](https://jrsoftware.org/isdl.php) | Compiles the `.iss` script into an `.exe` installer |
 | PowerShell 5.1+ | Runs the build script |
-| Internet access | Downloads embedded Python and NSSM during build |
+| Internet access | Downloads embedded Python and WinSW during build |
 
 ### Build Steps
 
@@ -32,8 +32,8 @@ cd installers\backend
 # Use a specific Python version
 .\build_installer.ps1 -PythonVersion "3.12.7"
 
-# Use a specific NSSM version
-.\build_installer.ps1 -NssmVersion "2.24"
+# Use a specific WinSW version
+.\build_installer.ps1 -WinswVersion "2.12.0"
 ```
 
 ## Running the Installer
@@ -51,7 +51,7 @@ Transfer `ArchivistBackendSetup.exe` to the target server and run it. The instal
 - Copies the backend app and an embedded Python runtime to the install directory
 - Generates a `.env` configuration file from the wizard inputs
 - Installs all Python dependencies via pip (offline-capable if packages are pre-cached)
-- Registers `ArchivistBackend` as a Windows service using NSSM
+- Registers `ArchivistBackend` as a Windows service using [WinSW](https://github.com/winsw/winsw)
 - Configures automatic service restart and log rotation
 - Adds a Windows Firewall inbound rule for the API port
 
@@ -65,13 +65,13 @@ Manage the service:
 
 ```powershell
 # Status
-nssm status ArchivistBackend
+Get-Service ArchivistBackend
 
 # Restart
-nssm restart ArchivistBackend
+& "C:\Program Files\Archivist\Backend\service\ArchivistBackend.exe" restart
 
 # Stop
-nssm stop ArchivistBackend
+& "C:\Program Files\Archivist\Backend\service\ArchivistBackend.exe" stop
 ```
 
 ### Uninstall

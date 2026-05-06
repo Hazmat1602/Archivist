@@ -2,18 +2,18 @@
 .SYNOPSIS
     Builds the Archivist Backend installer .exe.
 .DESCRIPTION
-    Downloads an embedded Python distribution and NSSM, copies the backend
+    Downloads an embedded Python distribution and WinSW, copies the backend
     source code, and compiles the Inno Setup script into a standalone
     installer executable.
 .PARAMETER PythonVersion
     Embedded Python version to bundle (default: 3.12.7).
-.PARAMETER NssmVersion
-    NSSM version to bundle (default: 2.24).
+.PARAMETER WinswVersion
+    WinSW version to bundle (default: 2.12.0).
 #>
 
 param(
     [string]$PythonVersion = "3.12.7",
-    [string]$NssmVersion = "2.24"
+    [string]$WinswVersion = "2.12.0"
 )
 
 Set-StrictMode -Version Latest
@@ -89,20 +89,16 @@ Invoke-WebRequest -Uri $GetPipUrl -OutFile $GetPipFile -UseBasicParsing
 Remove-Item $GetPipFile -Force
 Write-Ok "pip installed"
 
-# --- Download NSSM ----------------------------------------------------------
+# --- Download WinSW ---------------------------------------------------------
 
-Write-Step "Downloading NSSM $NssmVersion"
-$NssmZipUrl = "https://nssm.cc/release/nssm-$NssmVersion.zip"
-$NssmZipFile = Join-Path $env:TEMP "nssm.zip"
-$NssmDir = Join-Path $BuildDir "nssm"
+Write-Step "Downloading WinSW $WinswVersion"
+$WinswUrl = "https://github.com/winsw/winsw/releases/download/v$WinswVersion/WinSW-x64.exe"
+$WinswDir = Join-Path $BuildDir "winsw"
+New-Item -ItemType Directory -Path $WinswDir -Force | Out-Null
 
-Invoke-WebRequest -Uri $NssmZipUrl -OutFile $NssmZipFile -UseBasicParsing
-Expand-Archive -Path $NssmZipFile -DestinationPath $env:TEMP -Force
-New-Item -ItemType Directory -Path $NssmDir -Force | Out-Null
-Copy-Item "$env:TEMP\nssm-$NssmVersion\win64\nssm.exe" $NssmDir
-Remove-Item $NssmZipFile -Force
-Remove-Item "$env:TEMP\nssm-$NssmVersion" -Recurse -Force
-Write-Ok "NSSM extracted to $NssmDir"
+$WinswExe = Join-Path $WinswDir "ArchivistBackend.exe"
+Invoke-WebRequest -Uri $WinswUrl -OutFile $WinswExe -UseBasicParsing
+Write-Ok "WinSW downloaded to $WinswDir"
 
 # --- Copy backend source ----------------------------------------------------
 
