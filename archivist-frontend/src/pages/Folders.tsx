@@ -138,6 +138,20 @@ export function Folders() {
       },
     },
     {
+      accessorKey: "name",
+      header: "Name",
+      cell: ({ row }) => (
+          <span className="font-medium">{row.original.name || "—"}</span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: "excelLikeMultiValue" as const,
+      meta: {
+        getFilterValue: (folder) => folder.name || "",
+        getOptionLabel: (folder) => folder.name || "(Blank)",
+      },
+    },
+    {
       accessorKey: "code",
       header: "Code",
       cell: ({ row }) => (
