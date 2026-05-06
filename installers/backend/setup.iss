@@ -208,6 +208,10 @@ begin
 
     SaveStringToFile(ExpandConstant('{app}\service\ArchivistBackend.xml'), XmlContent, False);
 
+    { Ensure Lib\site-packages is in the ._pth file so pip packages are importable }
+    SaveStringToFile(ExpandConstant('{app}\python\python312._pth'),
+      #13#10 + 'Lib\site-packages' + #13#10, True);
+
     { Install Python dependencies using pip }
     WizardForm.StatusLabel.Caption := 'Installing Python dependencies...';
     Exec(PythonExe,
