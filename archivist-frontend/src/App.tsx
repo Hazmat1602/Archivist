@@ -20,8 +20,8 @@ function ProtectedRoutes() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-slate-500">Loading...</p>
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <p className="text-slate-500 dark:text-slate-400">Loading...</p>
       </div>
     );
   }
@@ -56,8 +56,8 @@ function AppRoutes() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <p className="text-slate-500">Loading...</p>
+      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <p className="text-slate-500 dark:text-slate-400">Loading...</p>
       </div>
     );
   }
