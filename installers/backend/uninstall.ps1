@@ -16,14 +16,14 @@ Write-Host "Archivist Backend Uninstaller" -ForegroundColor Cyan
 Write-Host ""
 
 # Stop and remove service
-$NssmExe = Join-Path $InstallDir "nssm\nssm.exe"
+$ServiceExe = Join-Path $InstallDir "service\ArchivistBackend.exe"
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 
 if ($svc) {
     Write-Host "Stopping service '$ServiceName'..." -ForegroundColor Yellow
-    if (Test-Path $NssmExe) {
-        & $NssmExe stop $ServiceName 2>$null
-        & $NssmExe remove $ServiceName confirm 2>$null
+    if (Test-Path $ServiceExe) {
+        & $ServiceExe stop 2>$null
+        & $ServiceExe uninstall 2>$null
     } else {
         Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
         sc.exe delete $ServiceName 2>$null
