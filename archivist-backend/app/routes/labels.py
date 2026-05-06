@@ -157,7 +157,7 @@ def create_folder_labels(
 # ---------------------------------------------------------------------------
 
 BOX_LABELS_PER_SHEET = 4
-MAX_FOLDER_LINES = 20
+MAX_FOLDER_LINES = 10
 
 
 class BoxLabelRequest(BaseModel):

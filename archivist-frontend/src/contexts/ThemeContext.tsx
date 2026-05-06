@@ -1,77 +1,52 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type ThemeMode = "light" | "dark" | "system";
-type ResolvedTheme = "light" | "dark";
-
-type ThemeContextValue = {
-  mode: ThemeMode;
-  resolvedTheme: ResolvedTheme;
-  cycleMode: () => void;
+type ThemeContextType = {
+    mode: ThemeMode;
+    setMode: (m: ThemeMode) => void;
+    resolved: "light" | "dark";
 };
 
+const ThemeContext = createContext<ThemeContextType | null>(null);
 const STORAGE_KEY = "archivist-theme";
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-function getSystemTheme(): ResolvedTheme {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+function getSystemTheme(): "light" | "dark" {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-const modeOrder: ThemeMode[] = ["light", "dark", "system"];
-
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    const storedMode = localStorage.getItem(STORAGE_KEY);
-    if (storedMode === "light" || storedMode === "dark" || storedMode === "system") {
-      return storedMode;
-    }
-    return "system";
-  });
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(
-    mode === "system" ? getSystemTheme() : mode,
-  );
+    const [mode, setMode] = useState<ThemeMode>(
+        () => (localStorage.getItem(STORAGE_KEY) as ThemeMode) || "system"
+    );
+    const [resolved, setResolved] = useState<"light" | "dark">(
+        mode === "system" ? getSystemTheme() : mode
+    );
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, mode);
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY, mode);
 
-    const applyTheme = (theme: ResolvedTheme) => {
-      document.documentElement.classList.toggle("dark", theme === "dark");
-      setResolvedTheme(theme);
-    };
+        const apply = (theme: "light" | "dark") => {
+            document.documentElement.classList.toggle("dark", theme === "dark");
+            setResolved(theme);
+        };
 
-    if (mode === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      applyTheme(mediaQuery.matches ? "dark" : "light");
+        if (mode === "system") {
+            const mql = window.matchMedia("(prefers-color-scheme: dark)");
+            apply(mql.matches ? "dark" : "light");
+            const onChange = (e: MediaQueryListEvent) => apply(e.matches ? "dark" : "light");
+            mql.addEventListener("change", onChange);
+            return () => mql.removeEventListener("change", onChange);
+        }
 
-      const handleChange = (event: MediaQueryListEvent) => {
-        applyTheme(event.matches ? "dark" : "light");
-      };
+        apply(mode);
+    }, [mode]);
 
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
-    }
-
-    applyTheme(mode);
-  }, [mode]);
-
-  const cycleMode = () => {
-    const currentModeIndex = modeOrder.indexOf(mode);
-    const nextMode = modeOrder[(currentModeIndex + 1) % modeOrder.length];
-    setMode(nextMode);
-  };
-
-  const value = useMemo(
-    () => ({ mode, resolvedTheme, cycleMode }),
-    [mode, resolvedTheme],
-  );
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+    const value = useMemo(() => ({ mode, setMode, resolved }), [mode, resolved]);
+    return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error("useTheme must be used within a ThemeProvider");
-  }
-  return context;
+    const ctx = useContext(ThemeContext);
+    if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
+    return ctx;
 }
