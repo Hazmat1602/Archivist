@@ -66,8 +66,8 @@ export function Settings() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Application configuration and information</p>
+        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+        <p className="text-sm text-slate-500">Application configuration and information</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -78,22 +78,22 @@ export function Settings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Username</span>
+              <span className="text-sm text-slate-500">Username</span>
               <span className="text-sm font-medium">{user?.username}</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Email</span>
+              <span className="text-sm text-slate-500">Email</span>
               <span className="text-sm font-medium">{user?.email}</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Full Name</span>
+              <span className="text-sm text-slate-500">Full Name</span>
               <span className="text-sm font-medium">{user?.full_name || "—"}</span>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Role</span>
+              <span className="text-sm text-slate-500">Role</span>
               <Badge variant={user?.is_admin ? "default" : "secondary"}>
                 {user?.is_admin ? "Admin" : "User"}
               </Badge>
@@ -110,12 +110,12 @@ export function Settings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">API URL</span>
+              <span className="text-sm text-slate-500">API URL</span>
               <Badge variant="outline" className="font-mono text-xs">{apiUrl}</Badge>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Status</span>
+              <span className="text-sm text-slate-500">Status</span>
               {renderStatus()}
             </div>
           </CardContent>
@@ -128,12 +128,12 @@ export function Settings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Engine</span>
+              <span className="text-sm text-slate-500">Engine</span>
               <Badge variant="secondary">SQL Server</Badge>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Driver</span>
+              <span className="text-sm text-slate-500">Driver</span>
               <Badge variant="outline">pyodbc (ODBC 18)</Badge>
             </div>
           </CardContent>
@@ -149,7 +149,7 @@ export function Settings() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Clear Database</span>
+                <span className="text-sm text-slate-500">Clear Database</span>
                 <Button variant="destructive" onClick={() => setConfirmOpen(true)}>
                   Clear Database
                 </Button>
@@ -165,21 +165,21 @@ export function Settings() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Version</span>
+              <span className="text-sm text-slate-500">Version</span>
               <Badge>v2.0.0</Badge>
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">Architecture</span>
+              <span className="text-sm text-slate-500">Architecture</span>
               <span className="text-sm">FastAPI + React + SQL Server</span>
             </div>
             <Separator />
-            <p className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">
+            <p className="text-sm text-slate-500">
               Archivist is a records management system for tracking physical archives, boxes, and folders
               with automated retention period calculations and lifecycle management.
             </p>
             <Separator />
-            <p className="text-sm text-slate-500 dark:text-slate-400 dark:text-slate-400">
+            <p className="text-sm text-slate-500">
               Created by Harrison Brasch (hbras0)
             </p>
           </CardContent>
