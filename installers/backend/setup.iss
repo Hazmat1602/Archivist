@@ -22,7 +22,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
-ArchitecturesInstallMode=x64compatible
+ArchitecturesAllowed=x64
 UninstallDisplayName={#AppName}
 CloseApplications=yes
 
