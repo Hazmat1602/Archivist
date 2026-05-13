@@ -60,11 +60,12 @@ async fn save_download_file(
         });
 
     let selected_path = rx.recv().map_err(|e| e.to_string())?;
-    let Some(path) = selected_path else {
+    let Some(file_path) = selected_path else {
         return Ok(false);
     };
 
-    fs::write(path, bytes).map_err(|e| e.to_string())?;
+    let path = file_path.into_path().map_err(|e| e.to_string())?;
+    fs::write(&path, &bytes).map_err(|e| e.to_string())?;
     Ok(true)
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
