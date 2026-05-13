@@ -18,23 +18,53 @@ fn config_path(app: &tauri::AppHandle) -> PathBuf {
     config_dir.join("config.json")
 }
 
+fn legacy_config_path() -> Option<PathBuf> {
+    dirs::config_dir().map(|d| d.join("Archivist").join("config.json"))
+}
+
+fn read_config_from(path: &PathBuf) -> Option<AppConfig> {
+    let content = fs::read_to_string(path).ok()?;
+    let config: AppConfig = serde_json::from_str(&content).ok()?;
+    if config.server_url.is_some() {
+        Some(config)
+    } else {
+        None
+    }
+}
+
+fn write_config(path: &PathBuf, config: &AppConfig) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let content = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 fn get_config(app: tauri::AppHandle) -> AppConfig {
-    let path = config_path(&app);
-    match fs::read_to_string(&path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-        Err(_) => AppConfig::default(),
+    let primary = config_path(&app);
+    if let Some(config) = read_config_from(&primary) {
+        return config;
     }
+    if let Some(legacy) = legacy_config_path() {
+        if let Some(config) = read_config_from(&legacy) {
+            let _ = write_config(&primary, &config);
+            return config;
+        }
+    }
+    AppConfig::default()
 }
 
 #[tauri::command]
 fn save_config(app: tauri::AppHandle, server_url: String) -> Result<AppConfig, String> {
-    let path = config_path(&app);
     let config = AppConfig {
         server_url: Some(server_url),
     };
-    let content = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
-    fs::write(&path, content).map_err(|e| e.to_string())?;
+    write_config(&config_path(&app), &config)?;
+    if let Some(legacy) = legacy_config_path() {
+        let _ = write_config(&legacy, &config);
+    }
     Ok(config)
 }
 
