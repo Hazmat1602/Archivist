@@ -23,6 +23,12 @@ $ScriptDir = $PSScriptRoot
 $BuildDir = Join-Path $ScriptDir "build"
 $BackendSrc = Join-Path $ScriptDir "..\..\archivist-backend"
 
+$OfflineDependencies = @(
+    'fastapi[standard]','sqlalchemy','pyodbc','python-dateutil','python-multipart',
+    'passlib[bcrypt]','python-jose[cryptography]','python-dotenv','argon2-cffi',
+    'pandas','openpyxl','python-docx','docxtpl','uvicorn'
+)
+
 function Write-Step($msg) { Write-Host "`n>>> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "    $msg" -ForegroundColor Green }
 
@@ -92,6 +98,14 @@ Invoke-WebRequest -Uri $GetPipUrl -OutFile $GetPipFile -UseBasicParsing
 & (Join-Path $PyDir "python.exe") $GetPipFile --no-warn-script-location
 Remove-Item $GetPipFile -Force
 Write-Ok "pip installed"
+
+# --- Build offline wheelhouse -----------------------------------------------
+
+Write-Step "Downloading Python dependency wheels for offline install"
+$WheelhouseDir = Join-Path $BuildDir "wheelhouse"
+New-Item -ItemType Directory -Path $WheelhouseDir -Force | Out-Null
+& (Join-Path $PyDir "python.exe") -m pip download --dest $WheelhouseDir @OfflineDependencies
+Write-Ok "Offline wheelhouse created at $WheelhouseDir"
 
 # --- Download WinSW ---------------------------------------------------------
 

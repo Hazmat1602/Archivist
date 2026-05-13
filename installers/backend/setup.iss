@@ -38,6 +38,9 @@ Source: "build\poetry.lock"; DestDir: "{app}"; Flags: ignoreversion
 ; Embedded Python distribution
 Source: "build\python\*"; DestDir: "{app}\python"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+; Offline dependency wheelhouse
+Source: "build\wheelhouse\*"; DestDir: "{app}\wheelhouse"; Flags: ignoreversion recursesubdirs createallsubdirs
+
 ; WinSW service wrapper (pre-renamed to ArchivistBackend.exe)
 Source: "build\winsw\ArchivistBackend.exe"; DestDir: "{app}\service"; Flags: ignoreversion
 
@@ -211,11 +214,21 @@ begin
     { Ensure Lib\site-packages is in the ._pth file so pip packages are importable }
     SaveStringToFile(ExpandConstant('{app}\python\python312._pth'), #13#10 + 'Lib\site-packages' + #13#10, True);
 
-    { Install Python dependencies using pip }
-    WizardForm.StatusLabel.Caption := 'Installing Python dependencies...';
-    Exec(PythonExe,
-      '-m pip install --no-warn-script-location fastapi[standard] sqlalchemy pyodbc python-dateutil python-multipart "passlib[bcrypt]" "python-jose[cryptography]" python-dotenv argon2-cffi pandas openpyxl python-docx docxtpl uvicorn',
-      ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    { Install Python dependencies into embedded site-packages }
+    
+        WizardForm.StatusLabel.Caption := 'Installing Python dependencies...';
+        if not Exec(PythonExe,
+          '-m pip install --no-index --find-links "' + ExpandConstant('{app}\wheelhouse') + '" --no-warn-script-location --target "' + ExpandConstant('{app}\python\Lib\site-packages') + '" fastapi[standard] sqlalchemy pyodbc python-dateutil python-multipart "passlib[bcrypt]" "python-jose[cryptography]" python-dotenv argon2-cffi pandas openpyxl python-docx docxtpl uvicorn',
+          ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+        begin
+          MsgBox('Failed to start pip dependency installation process.', mbError, MB_OK);
+          Abort;
+        end;
+        if ResultCode <> 0 then
+        begin
+          MsgBox('Dependency installation failed (pip exit code ' + IntToStr(ResultCode) + ').', mbError, MB_OK);
+          Abort;
+        end;
 
     { Stop and remove existing service if present }
     Exec(ServiceExe, 'stop', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);

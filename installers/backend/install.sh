@@ -120,7 +120,8 @@ step "Installing Python dependencies"
 if command -v poetry &>/dev/null; then
     cd "$INSTALL_DIR"
     "$VENV_DIR/bin/pip" install poetry -q
-    "$VENV_DIR/bin/poetry" install --no-interaction
+    "$VENV_DIR/bin/poetry" config virtualenvs.create false --local
+    "$VENV_DIR/bin/poetry" install --no-interaction --no-root
     cd "$SCRIPT_DIR"
 else
     "$VENV_DIR/bin/pip" install \

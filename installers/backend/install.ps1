@@ -137,14 +137,15 @@ Write-Ok "Virtual environment created at $VenvDir"
 Write-Step "Installing Python dependencies"
 $PipExe = Join-Path $VenvDir "Scripts\pip.exe"
 & $PipExe install --upgrade pip | Out-Null
-& $PipExe install -r (Join-Path $InstallDir "pyproject.toml") 2>$null
 
-# Use poetry export if available, otherwise install with pip + pyproject.toml
+# Use poetry when available; otherwise install a known-good dependency set explicitly.
+# NOTE: pip cannot install directly from pyproject.toml with `-r`, so avoid that.
 $PoetryAvailable = Test-CommandExists "poetry"
 if ($PoetryAvailable) {
     Push-Location $InstallDir
     & (Join-Path $VenvDir "Scripts\python.exe") -m pip install poetry
-    & (Join-Path $VenvDir "Scripts\poetry.exe") install --no-interaction
+    & (Join-Path $VenvDir "Scripts\poetry.exe") config virtualenvs.create false --local
+    & (Join-Path $VenvDir "Scripts\poetry.exe") install --no-interaction --no-root
     Pop-Location
 } else {
     & $PipExe install fastapi[standard] sqlalchemy pyodbc python-dateutil python-multipart passlib[bcrypt] python-jose[cryptography] python-dotenv argon2-cffi pandas openpyxl python-docx docxtpl uvicorn
