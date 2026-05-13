@@ -2,17 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import type { ReactNode } from "react";
 
 import { getApiBase } from "@/lib/config";
-
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  full_name: string | null;
-  is_active: boolean;
-  is_admin: boolean;
-  password_temporary: boolean;
-  created_at: string;
-}
+import type { User } from "@/lib/api";
 
 interface AuthContextType {
   user: User | null;

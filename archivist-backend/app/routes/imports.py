@@ -4,7 +4,6 @@ from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
-from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -17,6 +16,7 @@ from app.models.folder import Folder
 from app.models.location import Location
 from app.models.retention_code import RetentionCode
 from app.models.user import User
+from app.routes.helpers import calc_expiry
 
 router = APIRouter(prefix="/imports", tags=["imports"])
 
@@ -171,18 +171,6 @@ async def import_locations(
     return {"created": created, "duplicates": duplicates, "failed": failed}
 
 
-def _calc_expiry(code_obj: RetentionCode, start_date: date) -> date | None:
-    if code_obj.period == -1:
-        return None
-    if code_obj.period is not None:
-        return start_date + relativedelta(years=code_obj.period)
-    if code_obj.date is not None:
-        return code_obj.date
-    if code_obj.m_period is not None:
-        return start_date + relativedelta(months=code_obj.m_period)
-    return None
-
-
 def _next_folder_retention_id(db: Session, folder_code: str, year: int) -> str:
     prefix = f"F{year}-"
     max_id = db.query(func.max(Folder.retention_id)).filter(Folder.retention_id.like(f"{prefix}%")).scalar()
@@ -234,7 +222,7 @@ async def import_folders(
             failed.append(f"Row {row_index + 2} ({folder_code}): retention code not found")
             continue
 
-        expiry_date = _calc_expiry(retention_code, start_date)
+        expiry_date = calc_expiry(retention_code, start_date)
         retention_code_id = retention_code.id
 
         retention_id = _next_folder_retention_id(db, folder_code, created_date.year)
@@ -309,7 +297,7 @@ async def import_boxes(
 
         folders_to_assign = db.query(Folder).filter(Folder.retention_id.in_(retention_ids)).all() if retention_ids else []
         expiry_dates = [folder.expiry_date for folder in folders_to_assign if folder.expiry_date is not None]
-        expiry_date = max(expiry_dates) if expiry_dates else None
+        expiry_date = min(expiry_dates) if expiry_dates else None
 
         box_code = _next_box_code(db, created_date.year)
         box = Box(
