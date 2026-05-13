@@ -1,4 +1,29 @@
-import { getApiBase } from "./config";
+import { getApiBase, isTauri } from "./config";
+import { invoke } from "@tauri-apps/api/core";
+
+
+
+async function saveDownloadedFile(blob: Blob, defaultFileName: string): Promise<void> {
+  if (!isTauri()) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = defaultFileName;
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  const fileBytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+  const saved = await invoke<boolean>("save_download_file", {
+    fileName: defaultFileName,
+    bytes: fileBytes,
+  });
+
+  if (!saved) {
+    throw new Error("Download canceled");
+  }
+}
 
 function getAuthHeaders(includeJsonContentType = true): Record<string, string> {
   const token = localStorage.getItem("token");
@@ -236,12 +261,7 @@ export const api = {
     });
     if (!res.ok) throw new Error(`Label generation failed: ${res.status}`);
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "folder_labels.docx";
-    a.click();
-    URL.revokeObjectURL(url);
+    await saveDownloadedFile(blob, "folder_labels.docx");
   },
 
   downloadBoxLabels: async (boxIds?: number[]) => {
@@ -252,12 +272,7 @@ export const api = {
     });
     if (!res.ok) throw new Error(`Label generation failed: ${res.status}`);
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "box_labels.docx";
-    a.click();
-    URL.revokeObjectURL(url);
+    await saveDownloadedFile(blob, "box_labels.docx");
   },
 
 };

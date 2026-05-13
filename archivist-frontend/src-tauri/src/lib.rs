@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 struct AppConfig {
@@ -42,14 +43,41 @@ fn get_config_path(app: tauri::AppHandle) -> String {
     config_path(&app).to_string_lossy().to_string()
 }
 
+
+#[tauri::command]
+async fn save_download_file(
+    app: tauri::AppHandle,
+    file_name: String,
+    bytes: Vec<u8>,
+) -> Result<bool, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    app.dialog()
+        .file()
+        .set_file_name(&file_name)
+        .save_file(move |path| {
+            let _ = tx.send(path);
+        });
+
+    let selected_path = rx.recv().map_err(|e| e.to_string())?;
+    let Some(path) = selected_path else {
+        return Ok(false);
+    };
+
+    fs::write(path, bytes).map_err(|e| e.to_string())?;
+    Ok(true)
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             get_config,
             save_config,
-            get_config_path
+            get_config_path,
+            save_download_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
