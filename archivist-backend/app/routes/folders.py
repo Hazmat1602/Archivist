@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -58,8 +58,6 @@ def _folder_to_read(folder: Folder, db: Session, code_str: str | None = None) ->
 
 @router.get("/", response_model=list[FolderRead])
 def list_folders(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
     unassigned: bool = False,
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
@@ -67,7 +65,7 @@ def list_folders(
     query = db.query(Folder)
     if unassigned:
         query = query.filter(Folder.box_id.is_(None))
-    folders = query.order_by(Folder.id).offset(offset).limit(limit).all()
+    folders = query.order_by(Folder.id).all()
     retention_ids = {folder.retention_code_id for folder in folders if folder.retention_code_id}
     code_lookup = {}
     if retention_ids:

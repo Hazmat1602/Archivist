@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -72,12 +72,10 @@ def _create_box_with_retry(db: Session, body: BoxCreate, user_id: int, max_retri
 
 @router.get("/", response_model=list[BoxRead])
 def list_boxes(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    boxes = db.query(Box).order_by(Box.id).offset(offset).limit(limit).all()
+    boxes = db.query(Box).order_by(Box.id).all()
     box_ids = [b.id for b in boxes]
     folder_counts = {}
     if box_ids:
