@@ -2,6 +2,11 @@
 
 A modern records management system for tracking physical archives, boxes, and folders with automated retention period calculations and lifecycle management.
 
+## Documentation
+
+- **[Installation Guide](docs/INSTALLATION.md)** — Full installation instructions for Windows, Linux, developer setups, and the Tauri desktop app.
+- **[Usage Guide](docs/USAGE.md)** — How to use the application: login, managing records, importing data, and day-to-day workflows.
+
 ## Architecture
 
 - **Backend** (`archivist-backend/`): FastAPI + SQLAlchemy + SQL Server (via pyodbc)
